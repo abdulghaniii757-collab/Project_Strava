@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/activity.dart';
+import 'activity.dart';
 import 'activity_detail_page.dart';
 import 'add_activity_page.dart';
 
@@ -19,9 +19,9 @@ class HomePage extends StatelessWidget {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(12),
-        itemCount: dummyActivities.length,
+        itemCount: activities.length,
         itemBuilder: (context, index) {
-          final activity = dummyActivities[index];
+          final activity = activities[index];
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
