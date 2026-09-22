@@ -25,11 +25,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _submit() {
-    // Belum ada validasi/backend, langsung masuk ke MainNavigation
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const MainNavigation()),
-    );
+    // Navigasi menggunakan route agar tidak bergantung pada nama class halaman.
+    Navigator.pushReplacementNamed(context, '/main');
   }
 
   @override
@@ -303,14 +300,5 @@ class _LoginPageState extends State<LoginPage> {
         onPressed: onTap,
       ),
     );
-  }
-}
-
-class MainNavigation extends StatelessWidget {
-  const MainNavigation();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold();
   }
 }
