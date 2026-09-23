@@ -25,8 +25,25 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _submit() {
-    // Navigasi menggunakan route agar tidak bergantung pada nama class halaman.
-    Navigator.pushReplacementNamed(context, '/main');
+    // Kode sementara login dengan dummy email dan password
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    const tempEmail = 'admin@gmail.com';
+    const tempPassword = 'admin';
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mohon isi email dan kata sandi.')),
+      );
+      return;
+    }
+
+    if (email == tempEmail && password == tempPassword) {
+      Navigator.pushReplacementNamed(context, '/main');
+      return;
+    }
+
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'pages/login_page.dart';
+import 'pages/main_navigation.dart';
 
 void main() {
   runApp(const StravaApp());
@@ -17,6 +18,9 @@ class StravaApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const LoginPage(),
+      routes: {
+        '/main': (context) => const MainNavigation(),
+      },
     );
   }
 }
