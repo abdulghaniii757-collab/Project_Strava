@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/activity.dart';
+import '../models/gear.dart';
 import '../models/user_profile.dart';
+import '../services/local_storage.dart';
 import 'activity_detail_page.dart';
 import 'add_activity_page.dart';
 import 'login_page.dart';
@@ -17,6 +19,78 @@ const _muted = Color(0xFFA0A0A0);
 
 /// Target jarak mingguan (km), disimpan di memori selama app berjalan.
 double _weeklyGoalKm = 10;
+
+// ---------- perlengkapan (gear) ----------
+
+/// Daftar perlengkapan. Dimuat dari penyimpanan permanen saat tab Profil
+/// pertama kali dibuka (lihat _ProfilePageState.initState).
+final List<Gear> _gearList = [];
+
+double _gearTotalKm(Gear gear) => dummyActivities
+    .where((a) => a.type == gear.type)
+    .fold<double>(0, (sum, a) => sum + a.distanceKm);
+
+// ---------- lencana pencapaian ----------
+
+class _Badge {
+  const _Badge({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.unlocked,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final bool unlocked;
+}
+
+List<_Badge> _computeBadges() {
+  final totalKm = dummyActivities.fold<double>(0, (sum, a) => sum + a.distanceKm);
+  final count = dummyActivities.length;
+  final streak = _weekStreak();
+  final sportsUsed = dummyActivities.map((a) => a.type).toSet().length;
+
+  return [
+    _Badge(
+      title: 'Aktivitas Pertama',
+      description: 'Catat aktivitas pertamamu',
+      icon: Icons.flag,
+      unlocked: count >= 1,
+    ),
+    _Badge(
+      title: '10 Aktivitas',
+      description: 'Catat 10 aktivitas',
+      icon: Icons.repeat,
+      unlocked: count >= 10,
+    ),
+    _Badge(
+      title: 'Jarak 50 km',
+      description: 'Kumpulin total jarak 50 km',
+      icon: Icons.social_distance,
+      unlocked: totalKm >= 50,
+    ),
+    _Badge(
+      title: 'Jarak 100 km',
+      description: 'Kumpulin total jarak 100 km',
+      icon: Icons.terrain,
+      unlocked: totalKm >= 100,
+    ),
+    _Badge(
+      title: 'Beruntun 3 Minggu',
+      description: 'Aktif 3 minggu berturut-turut',
+      icon: Icons.local_fire_department,
+      unlocked: streak >= 3,
+    ),
+    _Badge(
+      title: 'Multi-Olahraga',
+      description: 'Coba minimal 2 jenis olahraga',
+      icon: Icons.sports,
+      unlocked: sportsUsed >= 2,
+    ),
+  ];
+}
 
 const _months = [
   'JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN',
@@ -246,6 +320,11 @@ _ChartSeries _seriesFor(_Period period, String type) {
   }
 }
 
+enum _ActivitySort { newest, longest }
+
+String _sortLabel(_ActivitySort s) =>
+    s == _ActivitySort.newest ? 'Terbaru' : 'Terjauh';
+
 // ---------- halaman ----------
 
 class ProfilePage extends StatefulWidget {
@@ -259,6 +338,26 @@ class _ProfilePageState extends State<ProfilePage> {
   int _tab = 0; // 0 = Kemajuan, 1 = Aktivitas, 2 = Lainnya
   String _sport = 'Lari';
   _Period _period = _Period.week;
+  String _activityFilter = 'Semua';
+  _ActivitySort _activitySort = _ActivitySort.newest;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersisted();
+  }
+
+  Future<void> _loadPersisted() async {
+    final goal = await LocalStorage.loadGoal();
+    final gear = await LocalStorage.loadGear();
+    if (!mounted) return;
+    setState(() {
+      if (goal != null) _weeklyGoalKm = goal;
+      _gearList
+        ..clear()
+        ..addAll(gear);
+    });
+  }
 
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -283,6 +382,7 @@ class _ProfilePageState extends State<ProfilePage> {
         currentUser.location = result.location;
         currentUser.bio = result.bio;
       });
+      await LocalStorage.saveProfile(currentUser);
     }
   }
 
@@ -578,6 +678,10 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildStreakCard(),
           const SizedBox(height: 16),
           _buildRecordsCard(),
+          const SizedBox(height: 16),
+          _buildBadgesCard(),
+          const SizedBox(height: 16),
+          _buildGearCard(),
         ],
       ),
     );
@@ -629,7 +733,25 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     if (value != null && mounted) {
       setState(() => _weeklyGoalKm = value);
+      await LocalStorage.saveGoal(_weeklyGoalKm);
     }
+  }
+
+  Future<void> _addGear() async {
+    final gear = await showDialog<Gear>(
+      context: context,
+      builder: (context) => const _AddGearDialog(),
+    );
+    if (gear != null && mounted) {
+      setState(() => _gearList.add(gear));
+      await LocalStorage.saveGear(_gearList);
+    }
+  }
+
+  void _removeGear(Gear gear) {
+    setState(() => _gearList.remove(gear));
+    LocalStorage.saveGear(_gearList);
+    _showSnack('${gear.name} dihapus dari perlengkapan');
   }
 
   Widget _buildGoalCard() {
@@ -924,6 +1046,185 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // ----- kartu Lencana Pencapaian -----
+
+  Widget _buildBadgesCard() {
+    final badges = _computeBadges();
+    final unlockedCount = badges.where((b) => b.unlocked).length;
+
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.military_tech, color: _orange),
+                const SizedBox(width: 8),
+                const Text(
+                  'Lencana Pencapaian',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '$unlockedCount/${badges.length}',
+                  style: const TextStyle(color: _muted, fontSize: 15),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                for (final b in badges)
+                  SizedBox(
+                    width: 82,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _showSnack(
+                        b.unlocked ? b.description : '${b.description} (belum terbuka)',
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: b.unlocked
+                                  ? const Color(0x33FC4C02)
+                                  : _chipGrey,
+                            ),
+                            child: Icon(
+                              b.unlocked ? b.icon : Icons.lock_outline,
+                              color: b.unlocked ? _orange : const Color(0xFF6A6A6A),
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            b.title,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: b.unlocked ? Colors.white : _muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ----- kartu Perlengkapan (gear) -----
+
+  Widget _buildGearCard() {
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.checkroom, color: _orange),
+                const SizedBox(width: 8),
+                const Text(
+                  'Perlengkapan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _addGear,
+                  icon: const Icon(Icons.add, color: _orange, size: 18),
+                  label: const Text(
+                    'Tambah',
+                    style: TextStyle(color: _orange, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            if (_gearList.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Belum ada perlengkapan tercatat.',
+                  style: TextStyle(color: _muted, fontSize: 15),
+                ),
+              )
+            else
+              for (final gear in _gearList) _gearRow(gear),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _gearRow(Gear gear) {
+    final km = _gearTotalKm(gear);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: const Color(0x33FC4C02),
+            child: Icon(_iconFor(gear.type), color: _orange, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  gear.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  '${gear.type} • ${_fmtKm(km)} km',
+                  style: const TextStyle(color: _muted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _removeGear(gear),
+            icon: const Icon(Icons.delete_outline, color: _muted, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ----- tab Aktivitas -----
 
   Widget _buildActivityList(List<Activity> activities) {
@@ -940,25 +1241,106 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
+    final filtered = _activityFilter == 'Semua'
+        ? List<Activity>.from(activities)
+        : activities.where((a) => a.type == _activityFilter).toList();
+    filtered.sort(
+      (a, b) => _activitySort == _ActivitySort.newest
+          ? b.date.compareTo(a.date)
+          : b.distanceKm.compareTo(a.distanceKm),
+    );
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          for (final a in activities)
-            _ActivityTile(
-              activity: a,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ActivityDetailPage(activity: a),
-                  ),
-                );
-                if (mounted) setState(() {});
-              },
-            ),
+          _buildActivityFilterBar(),
+          const SizedBox(height: 16),
+          if (filtered.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  'Ga ada aktivitas $_activityFilter.',
+                  style: const TextStyle(color: _muted, fontSize: 15),
+                ),
+              ),
+            )
+          else
+            for (final a in filtered)
+              _ActivityTile(
+                activity: a,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ActivityDetailPage(activity: a),
+                    ),
+                  );
+                  if (mounted) setState(() {});
+                },
+              ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActivityFilterBar() {
+    final options = ['Semua', ..._sports.map((s) => s.type)];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final label in options)
+              _SportChip(
+                label: label,
+                icon: label == 'Semua' ? Icons.apps : _iconFor(label),
+                selected: _activityFilter == label,
+                onTap: () => setState(() => _activityFilter = label),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Text(
+              'Urutkan:',
+              style: TextStyle(color: _muted, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 10),
+            for (final s in _ActivitySort.values)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _activitySort = s),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _activitySort == s ? _orange : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _activitySort == s ? _orange : const Color(0xFF444444),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      _sortLabel(s),
+                      style: TextStyle(
+                        color: _activitySort == s ? Colors.white : _muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1398,6 +1780,97 @@ class _EditGoalDialogState extends State<_EditGoalDialog> {
           ),
         ),
         onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal', style: TextStyle(color: _muted)),
+        ),
+        TextButton(
+          onPressed: _submit,
+          child: const Text('Simpan', style: TextStyle(color: _orange)),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddGearDialog extends StatefulWidget {
+  const _AddGearDialog();
+
+  @override
+  State<_AddGearDialog> createState() => _AddGearDialogState();
+}
+
+class _AddGearDialogState extends State<_AddGearDialog> {
+  final _nameController = TextEditingController();
+  String _type = 'Lari';
+  String? _nameError;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Nama ga boleh kosong');
+      return;
+    }
+    Navigator.pop(context, Gear(name: name, type: _type));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _card,
+      title: const Text('Tambah perlengkapan', style: TextStyle(color: Colors.white)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Nama',
+                hintText: 'Misal: Sepatu Lari Biru',
+                errorText: _nameError,
+                labelStyle: const TextStyle(color: _muted),
+                hintStyle: const TextStyle(color: Color(0xFF666666)),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF555555)),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: _orange),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Jenis Olahraga',
+              style: TextStyle(color: _muted, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final s in _sports)
+                  _SportChip(
+                    label: s.type,
+                    icon: s.icon,
+                    selected: _type == s.type,
+                    onTap: () => setState(() => _type = s.type),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
