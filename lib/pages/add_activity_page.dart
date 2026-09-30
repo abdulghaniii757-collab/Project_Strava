@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/activity.dart';
+import '../services/local_storage.dart';
 
 class AddActivityPage extends StatefulWidget {
   const AddActivityPage({super.key});
@@ -32,7 +33,7 @@ class _AddActivityPageState extends State<AddActivityPage> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _nameController.text.trim();
     final distance = double.tryParse(_distanceController.text.trim());
     final hours = int.tryParse(_hoursController.text.trim()) ?? 0;
@@ -65,8 +66,9 @@ class _AddActivityPageState extends State<AddActivityPage> {
         date: DateTime.now(),
       ),
     );
+    await LocalStorage.saveActivities(dummyActivities);
 
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override
