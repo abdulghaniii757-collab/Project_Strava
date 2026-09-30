@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'models/activity.dart';
 import 'models/user_profile.dart';
+import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
 import 'pages/profile_page.dart'; // Import halaman profile
 import 'services/local_storage.dart';
@@ -36,8 +37,7 @@ class StravaApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
       ),
-      // Ganti sementara ke ProfilePage() agar langsung tampil saat di-run
-      home: const MainNavigation(),
+      home: const LoginPage(),
       routes: {
         '/main': (context) => const MainNavigation(),
         '/profile': (context) => const ProfilePage(),
