@@ -1,5 +1,5 @@
-  import 'package:flutter/material.dart';
-import 'pages/login_page.dart';
+import 'package:flutter/material.dart';
+
 import 'pages/main_navigation.dart';
 import 'pages/profile_page.dart'; // Import halaman profile
 
@@ -19,11 +19,11 @@ class StravaApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // Ganti sementara ke ProfilePage() agar langsung tampil saat di-run
-      home: const LoginPage(),
+      home: const MainNavigation(),
       routes: {
         '/main': (context) => const MainNavigation(),
         '/profile': (context) => const ProfilePage(),
       },
     );
-  } 
+  }
 }
