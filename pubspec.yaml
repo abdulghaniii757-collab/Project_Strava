@@ -38,6 +38,9 @@ dependencies:
   # Simpan data permanen (aktivitas, profil, target, gear) di perangkat.
   shared_preferences: ^2.3.2
 
+  # Milih foto dari galeri buat foto profil.
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
