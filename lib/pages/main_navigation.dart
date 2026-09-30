@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'home_page.dart';
 import 'stats_page.dart';
 import 'profile_page.dart';
@@ -13,11 +14,13 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  int _tick =
+      0; // dinaikin tiap ada aktivitas baru biar semua halaman ikut refresh
 
   static const _titles = ['Beranda', 'Statistik', 'Profil'];
 
-  List<Widget> get _pages => [
-    HomePage(),
+  late final _pages = [
+    HomePage(onAddActivity: _openAddActivity),
     StatsPage(),
     ProfilePage(),
   ];
@@ -27,24 +30,28 @@ class _MainNavigationState extends State<MainNavigation> {
       context,
       MaterialPageRoute(builder: (context) => const AddActivityPage()),
     );
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _tick++);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isHome = _currentIndex == 0;
+
     return Scaffold(
-      appBar: _currentIndex == 2 ? null : AppBar(
+      appBar: AppBar(
         title: Text(_titles[_currentIndex]),
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
       ),
       body: IndexedStack(index: _currentIndex, children: _pages),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepOrange,
-        onPressed: _openAddActivity,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: isHome
+          ? null
+          : FloatingActionButton(
+              backgroundColor: Colors.deepOrange,
+              onPressed: _openAddActivity,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: Colors.deepOrange,
@@ -52,7 +59,10 @@ class _MainNavigationState extends State<MainNavigation> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistik'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'Statistik',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
       ),

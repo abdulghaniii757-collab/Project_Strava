@@ -20,8 +20,8 @@ class _HomePageState extends State<HomePage> {
   static const _targetMingguKm = 20.0;
 
   final List<Map<String, String>> _saran = [
-    {'nama': 'Prabowo', 'ket': 'Sering lari pagi di sekitar kamu'},
-    {'nama': 'Jokowi', 'ket': 'Favorit pelari di Strava'},
+    {'nama': 'Rafi Ananda', 'ket': 'Sering lari pagi di sekitar kamu'},
+    {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Strava'},
     {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
     {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},
   ];
