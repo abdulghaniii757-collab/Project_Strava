@@ -11,6 +11,7 @@ class AddActivityPage extends StatefulWidget {
 class _AddActivityPageState extends State<AddActivityPage> {
   final _nameController = TextEditingController();
   final _distanceController = TextEditingController();
+  final _hoursController = TextEditingController();
   final _minutesController = TextEditingController();
   final _secondsController = TextEditingController();
   String _selectedType = 'Lari';
@@ -25,6 +26,7 @@ class _AddActivityPageState extends State<AddActivityPage> {
   void dispose() {
     _nameController.dispose();
     _distanceController.dispose();
+    _hoursController.dispose();
     _minutesController.dispose();
     _secondsController.dispose();
     super.dispose();
@@ -33,21 +35,25 @@ class _AddActivityPageState extends State<AddActivityPage> {
   void _save() {
     final name = _nameController.text.trim();
     final distance = double.tryParse(_distanceController.text.trim());
+    final hours = int.tryParse(_hoursController.text.trim()) ?? 0;
     final minutes = int.tryParse(_minutesController.text.trim()) ?? 0;
     final seconds = int.tryParse(_secondsController.text.trim()) ?? 0;
+
+    final totalSeconds = hours * 3600 + minutes * 60 + seconds;
 
     if (name.isEmpty ||
         distance == null ||
         distance <= 0 ||
-        (minutes == 0 && seconds == 0)) {
+        totalSeconds <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lengkapi semua data dengan benar ya!')),
       );
       return;
     }
 
+    // Format tetap MM:SS (jam diubah jadi menit) supaya halaman lain tetap cocok.
     final duration =
-        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+        '${(totalSeconds ~/ 60).toString().padLeft(2, '0')}:${(totalSeconds % 60).toString().padLeft(2, '0')}';
 
     dummyActivities.insert(
       0,
@@ -140,6 +146,18 @@ class _AddActivityPageState extends State<AddActivityPage> {
             const SizedBox(height: 8),
             Row(
               children: [
+                Expanded(
+                  child: TextField(
+                    controller: _hoursController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: '0',
+                      labelText: 'Jam',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _minutesController,

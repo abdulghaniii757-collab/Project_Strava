@@ -1,23 +1,18 @@
 class UserProfile {
-  final String name;
-  final String location;
-  final String avatarUrl;
-  final int following;
-  final int followers;
-  final int totalActivities4Weeks;
-  final double recentDistance;
-  final String recentTime;
-  final double recentElevation;
-
   UserProfile({
     required this.name,
-    required this.location,
-    required this.avatarUrl,
-    required this.following,
-    required this.followers,
-    required this.totalActivities4Weeks,
-    required this.recentDistance,
-    required this.recentTime,
-    required this.recentElevation,
+    this.bio = '',
+    this.location = '',
+    this.followers = 0,
+    this.following = 0,
   });
+
+  String name;
+  String bio;
+  String location;
+  int followers;
+  int following;
 }
+
+/// Data profil user yang sedang login (sementara masih disimpan di memori).
+final UserProfile currentUser = UserProfile(name: 'Pengguna');
