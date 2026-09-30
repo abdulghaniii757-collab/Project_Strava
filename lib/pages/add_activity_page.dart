@@ -3,10 +3,21 @@ import '../models/activity.dart';
 import '../services/local_storage.dart';
 
 class AddActivityPage extends StatefulWidget {
-  const AddActivityPage({super.key});
+  const AddActivityPage({super.key, this.existing});
+
+  /// Kalau diisi, halaman ini jadi mode edit buat aktivitas ini.
+  /// Kalau null, halaman ini buat nambah aktivitas baru.
+  final Activity? existing;
 
   @override
   State<AddActivityPage> createState() => _AddActivityPageState();
+}
+
+int _durationStringToSeconds(String duration) {
+  final parts = duration.split(':');
+  final minutes = int.tryParse(parts[0]) ?? 0;
+  final seconds = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+  return minutes * 60 + seconds;
 }
 
 class _AddActivityPageState extends State<AddActivityPage> {
@@ -22,6 +33,26 @@ class _AddActivityPageState extends State<AddActivityPage> {
     {'label': 'Sepeda', 'icon': Icons.directions_bike},
     {'label': 'Jalan Kaki', 'icon': Icons.directions_walk},
   ];
+
+  bool get _isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e == null) return;
+
+    _nameController.text = e.name;
+    _distanceController.text = e.distanceKm % 1 == 0
+        ? e.distanceKm.toInt().toString()
+        : e.distanceKm.toString();
+    _selectedType = e.type;
+
+    final totalSeconds = _durationStringToSeconds(e.duration);
+    _hoursController.text = '${totalSeconds ~/ 3600}';
+    _minutesController.text = '${(totalSeconds % 3600) ~/ 60}';
+    _secondsController.text = '${totalSeconds % 60}';
+  }
 
   @override
   void dispose() {
@@ -56,26 +87,31 @@ class _AddActivityPageState extends State<AddActivityPage> {
     final duration =
         '${(totalSeconds ~/ 60).toString().padLeft(2, '0')}:${(totalSeconds % 60).toString().padLeft(2, '0')}';
 
-    dummyActivities.insert(
-      0,
-      Activity(
-        name: name,
-        type: _selectedType,
-        distanceKm: distance,
-        duration: duration,
-        date: DateTime.now(),
-      ),
+    final newActivity = Activity(
+      name: name,
+      type: _selectedType,
+      distanceKm: distance,
+      duration: duration,
+      // Edit: tanggal aslinya dipertahankan. Baru: pakai waktu sekarang.
+      date: widget.existing?.date ?? DateTime.now(),
     );
+
+    if (_isEditing) {
+      final idx = dummyActivities.indexOf(widget.existing!);
+      if (idx != -1) dummyActivities[idx] = newActivity;
+    } else {
+      dummyActivities.insert(0, newActivity);
+    }
     await LocalStorage.saveActivities(dummyActivities);
 
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context, newActivity);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tambah Aktivitas'),
+        title: Text(_isEditing ? 'Edit Aktivitas' : 'Tambah Aktivitas'),
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
       ),
@@ -195,7 +231,7 @@ class _AddActivityPageState extends State<AddActivityPage> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: _save,
-                child: const Text('Simpan Aktivitas'),
+                child: Text(_isEditing ? 'Simpan Perubahan' : 'Simpan Aktivitas'),
               ),
             ),
           ],
