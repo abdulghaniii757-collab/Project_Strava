@@ -18,13 +18,6 @@ class _MainNavigationState extends State<MainNavigation> {
   int _tick =
       0; // dinaikin tiap ada aktivitas baru biar semua halaman ikut refresh
 
-  late final _pages = [
-    HomePage(onAddActivity: _openAddActivity),
-    MapPage(onAddActivity: _openAddActivity),
-    StatsPage(),
-    ProfilePage(),
-  ];
-
   Future<void> _openAddActivity() async {
     await Navigator.push(
       context,
@@ -37,9 +30,18 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     final isMap = _currentIndex == 1;
 
+    // Dibikin ulang tiap build (bukan late final) biar halaman ikut
+    // nampilin data terbaru setelah aktivitas ditambah atau pindah tab.
+    final pages = [
+      HomePage(onAddActivity: _openAddActivity),
+      MapPage(onAddActivity: _openAddActivity),
+      const StatsPage(),
+      ProfilePage(refreshTick: _tick),
+    ];
+
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: IndexedStack(index: _currentIndex, children: pages),
       floatingActionButton: isMap
           ? null
           : FloatingActionButton(

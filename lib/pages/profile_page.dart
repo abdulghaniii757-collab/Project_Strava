@@ -11,6 +11,7 @@ import '../models/user_profile.dart';
 import '../services/local_storage.dart';
 import 'activity_detail_page.dart';
 import 'add_activity_page.dart';
+import 'help_page.dart';
 import 'login_page.dart';
 
 const _orange = Color(0xFFFC4C02);
@@ -327,10 +328,44 @@ enum _ActivitySort { newest, longest }
 String _sortLabel(_ActivitySort s) =>
     s == _ActivitySort.newest ? 'Terbaru' : 'Terjauh';
 
+enum _AvatarAction { camera, gallery, remove }
+
+// ---------- dialog yang dipakai bareng (Profil & Pengaturan) ----------
+
+/// Buka dialog edit profil lalu simpan. Balikin true kalau ada perubahan.
+Future<bool> _promptEditProfile(BuildContext context) async {
+  final result = await showDialog<_ProfileForm>(
+    context: context,
+    builder: (context) => _EditProfileDialog(initial: currentUser),
+  );
+  if (result == null) return false;
+  currentUser.name = result.name;
+  currentUser.location = result.location;
+  currentUser.bio = result.bio;
+  await LocalStorage.saveProfile(currentUser);
+  return true;
+}
+
+/// Buka dialog target mingguan lalu simpan. Balikin true kalau ada perubahan.
+Future<bool> _promptEditGoal(BuildContext context) async {
+  final value = await showDialog<double>(
+    context: context,
+    builder: (context) => _EditGoalDialog(initial: _weeklyGoalKm),
+  );
+  if (value == null) return false;
+  _weeklyGoalKm = value;
+  await LocalStorage.saveGoal(_weeklyGoalKm);
+  return true;
+}
+
 // ---------- halaman ----------
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.refreshTick = 0});
+
+  /// Dinaikin sama MainNavigation tiap ada aktivitas baru, biar halaman ini
+  /// ikut digambar ulang walaupun aktivitasnya ditambah dari tab lain.
+  final int refreshTick;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -374,22 +409,34 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _editProfile() async {
-    final result = await showDialog<_ProfileForm>(
+    if (await _promptEditProfile(context) && mounted) setState(() {});
+  }
+
+  Future<void> _openSearch() async {
+    final picked = await showSearch<Activity?>(
       context: context,
-      builder: (context) => _EditProfileDialog(initial: currentUser),
+      delegate: _ActivitySearchDelegate(),
     );
-    if (result != null && mounted) {
-      setState(() {
-        currentUser.name = result.name;
-        currentUser.location = result.location;
-        currentUser.bio = result.bio;
-      });
-      await LocalStorage.saveProfile(currentUser);
-    }
+    if (picked != null && mounted) await _openDetail(picked);
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const _SettingsPage()),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _openHelp() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const HelpPage()),
+    );
   }
 
   Future<void> _pickAvatar() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final source = await showModalBottomSheet<_AvatarAction>(
       context: context,
       backgroundColor: _card,
       shape: const RoundedRectangleBorder(
@@ -412,13 +459,19 @@ class _ProfilePageState extends State<ProfilePage> {
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined, color: Colors.white),
               title: const Text('Ambil Foto', style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
+              onTap: () => Navigator.pop(context, _AvatarAction.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined, color: Colors.white),
               title: const Text('Pilih dari Galeri', style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
+              onTap: () => Navigator.pop(context, _AvatarAction.gallery),
             ),
+            if (currentUser.avatarBase64.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                title: const Text('Hapus Foto', style: TextStyle(color: Colors.redAccent)),
+                onTap: () => Navigator.pop(context, _AvatarAction.remove),
+              ),
             const SizedBox(height: 8),
           ],
         ),
@@ -426,9 +479,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     if (source == null) return;
 
+    if (source == _AvatarAction.remove) {
+      setState(() => currentUser.avatarBase64 = '');
+      await LocalStorage.saveProfile(currentUser);
+      return;
+    }
+
     try {
       final picked = await ImagePicker().pickImage(
-        source: source,
+        source: source == _AvatarAction.camera ? ImageSource.camera : ImageSource.gallery,
         maxWidth: 512,
         maxHeight: 512,
         imageQuality: 80,
@@ -500,12 +559,12 @@ class _ProfilePageState extends State<ProfilePage> {
               const Spacer(),
               _CircleIconButton(
                 icon: Icons.search,
-                onTap: () => _showSnack('Pencarian belum tersedia'),
+                onTap: _openSearch,
               ),
               const SizedBox(width: 10),
               _CircleIconButton(
                 icon: Icons.settings_outlined,
-                onTap: () => setState(() => _tab = 2),
+                onTap: _openSettings,
               ),
             ],
           ),
@@ -815,14 +874,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // ----- kartu Target Mingguan -----
 
   Future<void> _editGoal() async {
-    final value = await showDialog<double>(
-      context: context,
-      builder: (context) => _EditGoalDialog(initial: _weeklyGoalKm),
-    );
-    if (value != null && mounted) {
-      setState(() => _weeklyGoalKm = value);
-      await LocalStorage.saveGoal(_weeklyGoalKm);
-    }
+    if (await _promptEditGoal(context) && mounted) setState(() {});
   }
 
   Future<void> _addGear() async {
@@ -837,9 +889,26 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _removeGear(Gear gear) {
-    setState(() => _gearList.remove(gear));
+    final index = _gearList.indexOf(gear);
+    setState(() => _gearList.removeAt(index));
     LocalStorage.saveGear(_gearList);
-    _showSnack('${gear.name} dihapus dari perlengkapan');
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${gear.name} dihapus dari perlengkapan'),
+          action: SnackBarAction(
+            label: 'Urungkan',
+            textColor: _orange,
+            onPressed: () {
+              if (!mounted) return;
+              setState(() => _gearList.insert(math.min(index, _gearList.length), gear));
+              LocalStorage.saveGear(_gearList);
+            },
+          ),
+        ),
+      );
   }
 
   Widget _buildGoalCard() {
@@ -1446,13 +1515,15 @@ class _ProfilePageState extends State<ProfilePage> {
             ListTile(
               leading: const Icon(Icons.settings_outlined, color: Colors.white),
               title: const Text('Pengaturan', style: TextStyle(color: Colors.white)),
-              onTap: () => _showSnack('Pengaturan belum tersedia'),
+              trailing: const Icon(Icons.chevron_right, color: _muted),
+              onTap: _openSettings,
             ),
             const Divider(height: 1, color: Color(0xFF2E2E2E)),
             ListTile(
               leading: const Icon(Icons.help_outline, color: Colors.white),
               title: const Text('Bantuan', style: TextStyle(color: Colors.white)),
-              onTap: () => _showSnack('Bantuan belum tersedia'),
+              trailing: const Icon(Icons.chevron_right, color: _muted),
+              onTap: _openHelp,
             ),
             const Divider(height: 1, color: Color(0xFF2E2E2E)),
             ListTile(
@@ -1970,6 +2041,346 @@ class _AddGearDialogState extends State<_AddGearDialog> {
           child: const Text('Simpan', style: TextStyle(color: _orange)),
         ),
       ],
+    );
+  }
+}
+
+// ---------- pencarian aktivitas ----------
+
+class _ActivitySearchDelegate extends SearchDelegate<Activity?> {
+  _ActivitySearchDelegate()
+      : super(
+          searchFieldLabel: 'Cari nama atau jenis aktivitas',
+          searchFieldStyle: const TextStyle(color: Colors.white, fontSize: 17),
+        );
+
+  @override
+  ThemeData appBarTheme(BuildContext context) {
+    final base = Theme.of(context);
+    return base.copyWith(
+      scaffoldBackgroundColor: _bg,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: _card,
+        foregroundColor: Colors.white,
+        iconTheme: IconThemeData(color: Colors.white),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: InputBorder.none,
+        hintStyle: TextStyle(color: _muted),
+      ),
+      textSelectionTheme: const TextSelectionThemeData(cursorColor: _orange),
+    );
+  }
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+        if (query.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () => query = '',
+          ),
+      ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => close(context, null),
+      );
+
+  @override
+  Widget buildResults(BuildContext context) => _buildList(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _buildList(context);
+
+  Widget _buildList(BuildContext context) {
+    final q = query.trim().toLowerCase();
+    final results = dummyActivities
+        .where((a) =>
+            q.isEmpty ||
+            a.name.toLowerCase().contains(q) ||
+            a.type.toLowerCase().contains(q))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    if (results.isEmpty) {
+      return Container(
+        color: _bg,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(32),
+        child: Text(
+          dummyActivities.isEmpty
+              ? 'Belum ada aktivitas untuk dicari.'
+              : 'Ga ketemu aktivitas "${query.trim()}".',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: _muted, fontSize: 15),
+        ),
+      );
+    }
+
+    return Container(
+      color: _bg,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          for (final a in results)
+            _ActivityTile(activity: a, onTap: () => close(context, a)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- halaman Pengaturan ----------
+
+class _SettingsPage extends StatefulWidget {
+  const _SettingsPage();
+
+  @override
+  State<_SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<_SettingsPage> {
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _confirm(String title, String message, String action) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _card,
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        content: Text(message, style: const TextStyle(color: _muted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal', style: TextStyle(color: _muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(action, style: const TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _editProfile() async {
+    if (await _promptEditProfile(context) && mounted) {
+      setState(() {});
+      _showSnack('Profil disimpan');
+    }
+  }
+
+  Future<void> _editGoal() async {
+    if (await _promptEditGoal(context) && mounted) {
+      setState(() {});
+      _showSnack('Target mingguan disimpan');
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    if (!await _confirm('Hapus foto profil?', 'Foto profil akan diganti inisial nama.', 'Hapus')) {
+      return;
+    }
+    setState(() => currentUser.avatarBase64 = '');
+    await LocalStorage.saveProfile(currentUser);
+    if (mounted) _showSnack('Foto profil dihapus');
+  }
+
+  Future<void> _clearActivities() async {
+    if (!await _confirm(
+      'Hapus semua aktivitas?',
+      'Semua ${dummyActivities.length} aktivitas akan dihapus permanen.',
+      'Hapus',
+    )) {
+      return;
+    }
+    setState(dummyActivities.clear);
+    await LocalStorage.saveActivities(dummyActivities);
+    if (mounted) _showSnack('Semua aktivitas dihapus');
+  }
+
+  Future<void> _clearGear() async {
+    if (!await _confirm(
+      'Hapus semua perlengkapan?',
+      'Semua ${_gearList.length} perlengkapan akan dihapus permanen.',
+      'Hapus',
+    )) {
+      return;
+    }
+    setState(_gearList.clear);
+    await LocalStorage.saveGear(_gearList);
+    if (mounted) _showSnack('Semua perlengkapan dihapus');
+  }
+
+  Future<void> _resetAll() async {
+    if (!await _confirm(
+      'Reset semua data?',
+      'Aktivitas, profil, foto, target, dan perlengkapan akan dihapus, '
+          'lalu kamu dikeluarkan dari akun.',
+      'Reset',
+    )) {
+      return;
+    }
+    await LocalStorage.clearAll();
+    dummyActivities.clear();
+    _gearList.clear();
+    _weeklyGoalKm = 10;
+    currentUser
+      ..name = 'Pengguna'
+      ..bio = ''
+      ..location = ''
+      ..followers = 0
+      ..following = 0
+      ..avatarBase64 = '';
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false,
+    );
+  }
+
+  void _showAbout() {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Strava Clone',
+      applicationVersion: '1.0.0',
+      applicationIcon: const Icon(Icons.directions_run, color: _orange, size: 40),
+      children: const [
+        Text('Aplikasi pencatat aktivitas lari, sepeda, dan jalan kaki.'),
+      ],
+    );
+  }
+
+  Widget _section(String title, List<Widget> tiles) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Material(
+            color: _card,
+            borderRadius: BorderRadius.circular(18),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < tiles.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, color: Color(0xFF2E2E2E)),
+                  tiles[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    VoidCallback? onTap,
+    bool danger = false,
+  }) {
+    final color = danger ? Colors.redAccent : Colors.white;
+    return ListTile(
+      enabled: onTap != null,
+      leading: Icon(icon, color: onTap == null ? const Color(0xFF555555) : color),
+      title: Text(
+        title,
+        style: TextStyle(color: onTap == null ? const Color(0xFF555555) : color),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle, style: const TextStyle(color: _muted, fontSize: 13)),
+      trailing: danger ? null : const Icon(Icons.chevron_right, color: _muted),
+      onTap: onTap,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _bg,
+        foregroundColor: Colors.white,
+        title: const Text('Pengaturan'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 32),
+        children: [
+          _section('AKUN', [
+            _tile(
+              icon: Icons.person_outline,
+              title: 'Edit profil',
+              subtitle: currentUser.name,
+              onTap: _editProfile,
+            ),
+            _tile(
+              icon: Icons.no_photography_outlined,
+              title: 'Hapus foto profil',
+              subtitle: currentUser.avatarBase64.isEmpty ? 'Belum ada foto' : null,
+              onTap: currentUser.avatarBase64.isEmpty ? null : _removeAvatar,
+            ),
+          ]),
+          _section('LATIHAN', [
+            _tile(
+              icon: Icons.flag_outlined,
+              title: 'Target mingguan',
+              subtitle: '${_fmtKm(_weeklyGoalKm)} km per minggu',
+              onTap: _editGoal,
+            ),
+          ]),
+          _section('DATA', [
+            _tile(
+              icon: Icons.delete_sweep_outlined,
+              title: 'Hapus semua aktivitas',
+              subtitle: '${dummyActivities.length} aktivitas tersimpan',
+              onTap: dummyActivities.isEmpty ? null : _clearActivities,
+              danger: true,
+            ),
+            _tile(
+              icon: Icons.delete_outline,
+              title: 'Hapus semua perlengkapan',
+              subtitle: '${_gearList.length} perlengkapan tersimpan',
+              onTap: _gearList.isEmpty ? null : _clearGear,
+              danger: true,
+            ),
+            _tile(
+              icon: Icons.restart_alt,
+              title: 'Reset semua data',
+              subtitle: 'Kembali seperti baru install',
+              onTap: _resetAll,
+              danger: true,
+            ),
+          ]),
+          _section('LAINNYA', [
+            _tile(
+              icon: Icons.info_outline,
+              title: 'Tentang aplikasi',
+              subtitle: 'Versi 1.0.0',
+              onTap: _showAbout,
+            ),
+          ]),
+        ],
+      ),
     );
   }
 }
