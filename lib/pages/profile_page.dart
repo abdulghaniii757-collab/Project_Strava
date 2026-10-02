@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -328,7 +330,27 @@ enum _ActivitySort { newest, longest }
 String _sortLabel(_ActivitySort s) =>
     s == _ActivitySort.newest ? 'Terbaru' : 'Terjauh';
 
-enum _AvatarAction { camera, gallery, remove }
+enum _AvatarAction { camera, gallery, file, remove }
+
+/// Kecilin gambar (sisi terpanjang maks 512 px) biar base64-nya ga kegedean
+/// waktu disimpen di shared_preferences. Error kalau bytes bukan gambar.
+Future<Uint8List> _shrinkImage(Uint8List bytes) async {
+  const maxSide = 512;
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  final descriptor = await ui.ImageDescriptor.encoded(buffer);
+  final scale = maxSide / math.max(descriptor.width, descriptor.height);
+  final codec = await descriptor.instantiateCodec(
+    targetWidth: scale < 1 ? (descriptor.width * scale).round() : null,
+    targetHeight: scale < 1 ? (descriptor.height * scale).round() : null,
+  );
+  final frame = await codec.getNextFrame();
+  final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+  frame.image.dispose();
+  codec.dispose();
+  descriptor.dispose();
+  buffer.dispose();
+  return data!.buffer.asUint8List();
+}
 
 // ---------- dialog yang dipakai bareng (Profil & Pengaturan) ----------
 
@@ -435,7 +457,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _pickAvatar() async {
+  /// Buka file explorer (aplikasi Files) buat milih foto profil.
+  Future<void> _pickAvatarFromFile() async {
+    try {
+      final file = await FilePicker.pickFile(
+        dialogTitle: 'Pilih foto profil',
+        // Pakai custom + ekstensi (bukan FileType.image) biar di Android yang
+        // kebuka file explorer, bukan pemilih foto/galeri.
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
+      );
+      if (file == null) return;
+
+      final bytes = await _shrinkImage(await file.readAsBytes());
+      setState(() => currentUser.avatarBase64 = base64Encode(bytes));
+      await LocalStorage.saveProfile(currentUser);
+    } catch (_) {
+      if (mounted) _showSnack('File itu ga bisa dipakai, pilih file gambar ya.');
+    }
+  }
+
+  Future<void> _showAvatarMenu() async {
     final source = await showModalBottomSheet<_AvatarAction>(
       context: context,
       backgroundColor: _card,
@@ -466,6 +508,11 @@ class _ProfilePageState extends State<ProfilePage> {
               title: const Text('Pilih dari Galeri', style: TextStyle(color: Colors.white)),
               onTap: () => Navigator.pop(context, _AvatarAction.gallery),
             ),
+            ListTile(
+              leading: const Icon(Icons.folder_open_outlined, color: Colors.white),
+              title: const Text('Pilih dari File', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, _AvatarAction.file),
+            ),
             if (currentUser.avatarBase64.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
@@ -482,6 +529,10 @@ class _ProfilePageState extends State<ProfilePage> {
     if (source == _AvatarAction.remove) {
       setState(() => currentUser.avatarBase64 = '');
       await LocalStorage.saveProfile(currentUser);
+      return;
+    }
+    if (source == _AvatarAction.file) {
+      await _pickAvatarFromFile();
       return;
     }
 
@@ -571,8 +622,11 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 20),
           Row(
             children: [
+              // Ketuk foto: langsung buka file explorer.
+              // Ketuk ikon kamera kecil / tahan lama: menu kamera, galeri, hapus.
               GestureDetector(
-                onTap: _pickAvatar,
+                onTap: _pickAvatarFromFile,
+                onLongPress: _showAvatarMenu,
                 child: Stack(
                   children: [
                     CircleAvatar(
@@ -595,17 +649,20 @@ class _ProfilePageState extends State<ProfilePage> {
                     Positioned(
                       right: 0,
                       bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _chipGrey,
-                          border: Border.all(color: _bg, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 16,
-                          color: Colors.white,
+                      child: GestureDetector(
+                        onTap: _showAvatarMenu,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _chipGrey,
+                            border: Border.all(color: _bg, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 16,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
