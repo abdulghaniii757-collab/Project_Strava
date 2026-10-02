@@ -21,6 +21,7 @@ void main() async {
     currentUser.location = savedProfile.location;
     currentUser.followers = savedProfile.followers;
     currentUser.following = savedProfile.following;
+    currentUser.avatarBase64 = savedProfile.avatarBase64;
   }
 
   runApp(const StravaApp());

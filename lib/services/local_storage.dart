@@ -67,4 +67,13 @@ class LocalStorage {
         .map((e) => Gear.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  /// Hapus semua data yang kesimpen (aktivitas, profil, target, gear).
+  static Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kActivities);
+    await prefs.remove(_kProfile);
+    await prefs.remove(_kGoal);
+    await prefs.remove(_kGear);
+  }
 }
