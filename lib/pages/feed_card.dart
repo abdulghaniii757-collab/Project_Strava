@@ -3,10 +3,12 @@ import '../models/feed_post.dart';
 import 'route_map.dart';
 
 class FeedCard extends StatefulWidget {
-  const FeedCard({super.key, required this.post, this.onTap});
+  const FeedCard({super.key, required this.post, this.onTap, this.onDelete, this.onHide});
 
   final FeedPost post;
   final VoidCallback? onTap;
+  final VoidCallback? onDelete;
+  final VoidCallback? onHide;
 
   @override
   State<FeedCard> createState() => _FeedCardState();
@@ -31,6 +33,85 @@ class _FeedCardState extends State<FeedCard> {
   void _soon(String fitur) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$fitur belum tersedia')),
+    );
+  }
+
+  void _bukaMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF2A2A2D),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (p.isMine)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text('Hapus Aktivitas', style: TextStyle(color: Colors.redAccent)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _konfirmasiHapus();
+                  },
+                )
+              else ...[
+                ListTile(
+                  leading: const Icon(Icons.visibility_off_outlined, color: Colors.white),
+                  title: const Text('Sembunyikan Postingan', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    widget.onHide?.call();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined, color: Colors.white),
+                  title: const Text('Laporkan', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Laporan terkirim')),
+                    );
+                  },
+                ),
+              ],
+              ListTile(
+                leading: const Icon(Icons.share_outlined, color: Colors.white),
+                title: const Text('Bagikan', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _soon('Bagikan');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _konfirmasiHapus() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hapus aktivitas?'),
+        content: const Text('Aktivitas yang dihapus tidak bisa dikembalikan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              widget.onDelete?.call();
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -128,7 +209,7 @@ class _FeedCardState extends State<FeedCard> {
             ),
           ),
           IconButton(
-            onPressed: () => _soon('Menu'),
+            onPressed: _bukaMenu,
             icon: Icon(Icons.more_horiz, color: Colors.grey.shade400),
           ),
         ],
