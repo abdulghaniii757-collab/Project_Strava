@@ -4,11 +4,6 @@ import '../models/activity.dart';
 import '../models/feed_post.dart';
 import 'feed_card.dart';
 import 'activity_detail_page.dart';
-import 'notifications_page.dart';
-import 'search_page.dart';
-import 'messages_page.dart';
-import 'suggested_athletes_page.dart';
-import 'stats_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.onAddActivity});
@@ -84,15 +79,6 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-                      onDelete: posts[i].source == null
-                          ? null
-                          : () {
-                              setState(() => dummyActivities.remove(posts[i].source));
-                              _info('Aktivitas dihapus');
-                            },
-                      onHide: posts[i].source != null
-                          ? null
-                          : () => setState(() => otherPosts.remove(posts[i])),
                     ),
                   ],
                   if (sisipIndex == posts.length) _tantangan(),
@@ -133,24 +119,15 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.add, color: Colors.white, size: 28),
           ),
           IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const MessagesPage()),
-            ),
+            onPressed: () => _info('Pesan'),
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
           ),
           IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SearchPage()),
-            ),
+            onPressed: () => _info('Pencarian'),
             icon: const Icon(Icons.search, color: Colors.white),
           ),
           IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const NotificationsPage()),
-            ),
+            onPressed: () => _info('Notifikasi'),
             icon: const Icon(Icons.notifications_none, color: Colors.white),
           ),
         ],
@@ -163,7 +140,7 @@ class _HomePageState extends State<HomePage> {
         .showSnackBar(SnackBar(content: Text('$fitur belum tersedia')));
   }
 
-  Widget _judulSeksi(String teks, {String? aksi, VoidCallback? onAksi}) {
+  Widget _judulSeksi(String teks, {String? aksi}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
       child: Row(
@@ -179,15 +156,12 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           if (aksi != null)
-            GestureDetector(
-              onTap: onAksi,
-              child: Text(
-                aksi,
-                style: const TextStyle(
-                  color: Colors.deepOrange,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.5,
-                ),
+            Text(
+              aksi,
+              style: const TextStyle(
+                color: Colors.deepOrange,
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
               ),
             ),
         ],
@@ -221,17 +195,11 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const StatsPage()),
-                ),
-                child: Text(
-                  'Lihat Selengkapnya',
-                  style: TextStyle(
-                    color: Colors.deepOrange.shade300,
-                    fontSize: 12.5,
-                  ),
+              Text(
+                'Lihat Selengkapnya',
+                style: TextStyle(
+                  color: Colors.deepOrange.shade300,
+                  fontSize: 12.5,
                 ),
               ),
             ],
@@ -322,21 +290,14 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _judulSeksi(
-          'Siapa yang Harus Diikuti',
-          aksi: 'Lihat Semua',
-          onAksi: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SuggestedAthletesPage(awal: _saran)),
-          ),
-        ),
+        _judulSeksi('Siapa yang Harus Diikuti', aksi: 'Lihat Semua'),
         SizedBox(
           height: 218,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _saran.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, i) => _kartuSaran(_saran[i]),
           ),
         ),
