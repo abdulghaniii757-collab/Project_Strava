@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'home_page.dart';
 import 'stats_page.dart';
 import 'profile_page.dart';
 import 'add_activity_page.dart';
+import 'map_page.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -13,47 +15,65 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-
-  static const _titles = ['Beranda', 'Statistik', 'Profil'];
-
-  final _pages = const [
-    HomePage(),
-    StatsPage(),
-    ProfilePage(),
-  ];
+  int _tick =
+      0; // dinaikin tiap ada aktivitas baru biar semua halaman ikut refresh
 
   Future<void> _openAddActivity() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddActivityPage()),
     );
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _tick++);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isMap = _currentIndex == 1;
+
+    // Dibikin ulang tiap build (bukan late final) biar halaman ikut
+    // nampilin data terbaru setelah aktivitas ditambah atau pindah tab.
+    final pages = [
+      HomePage(onAddActivity: _openAddActivity),
+      MapPage(onAddActivity: _openAddActivity),
+      const StatsPage(),
+      ProfilePage(refreshTick: _tick),
+    ];
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
-        backgroundColor: Colors.deepOrange,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepOrange,
-        onPressed: _openAddActivity,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      extendBody: true,
+      body: IndexedStack(index: _currentIndex, children: pages),
+      floatingActionButton: isMap
+          ? null
+          : FloatingActionButton(
+              backgroundColor: Colors.deepOrange,
+              onPressed: _openAddActivity,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
+        elevation: 12,
         currentIndex: _currentIndex,
         selectedItemColor: Colors.deepOrange,
         unselectedItemColor: Colors.grey,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistik'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map_outlined),
+            label: 'Peta',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.radio_button_checked),
+            label: 'Rekam',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Anda',
+          ),
         ],
       ),
     );
