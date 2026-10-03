@@ -12,16 +12,18 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   late TabController _tabController;
 
   // Mock data sesuai tampilan UI
+// Ubah bagian ini agar angka statistik tidak 0
   final UserProfile user = UserProfile(
-    name: 'Clara Nata Valentina',
+    name: 'luli',
     location: 'Daerah Khusus Ibukota Jakarta, Indonesia',
-    avatarUrl: 'https://via.placeholder.com/150', // Bisa diganti URL foto profil/asset
+    avatarUrl: 'https://via.placeholder.com/150',
     following: 5,
-    followers: 0,
-    totalActivities4Weeks: 0,
-    recentDistance: 0.0,
-    recentTime: '0h 0m',
-    recentElevation: 0.0,
+    followers: 12,
+    totalActivities4Weeks: 8, 
+    recentDistance: 24.8,     
+    recentTime: '2h 15m',     
+    recentElevation: 45.0,    
+  );
   );
 
   @override
@@ -295,9 +297,10 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
-              _buildStatRow('Activities / Week', '0'),
-              _buildStatRow('Avg Time / Week', '0h 0m'),
-              _buildStatRow('Avg Distance / Week', '0 km'),
+              _buildStatRow('Activities / Week', '${user.totalActivities4Weeks}'),
+              _buildStatRow('Avg Time / Week', user.recentTime),
+              _buildStatRow('Avg Distance / Week', '${user.recentDistance} km'),
+              _buildStatRow('Total Elevation', '${user.recentElevation} m'),
             ],
           ),
         ),
