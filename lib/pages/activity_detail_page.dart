@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import '../models/activity.dart';
+import '../services/local_storage.dart';
+import 'add_activity_page.dart';
 
-class ActivityDetailPage extends StatelessWidget {
+class ActivityDetailPage extends StatefulWidget {
   const ActivityDetailPage({super.key, required this.activity});
 
   final Activity activity;
 
+  @override
+  State<ActivityDetailPage> createState() => _ActivityDetailPageState();
+}
+
+class _ActivityDetailPageState extends State<ActivityDetailPage> {
+  late Activity _activity = widget.activity;
+
   IconData get _icon {
-    switch (activity.type) {
+    switch (_activity.type) {
       case 'Sepeda':
         return Icons.directions_bike;
       case 'Jalan Kaki':
@@ -18,16 +27,55 @@ class ActivityDetailPage extends StatelessWidget {
   }
 
   double get _paceMinPerKm {
-    final parts = activity.duration.split(':');
+    final parts = _activity.duration.split(':');
     final minutes = int.tryParse(parts[0]) ?? 0;
     final seconds = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
     final totalMinutes = minutes + seconds / 60;
-    if (activity.distanceKm <= 0) return 0;
-    return totalMinutes / activity.distanceKm;
+    if (_activity.distanceKm <= 0) return 0;
+    return totalMinutes / _activity.distanceKm;
+  }
+
+  Future<void> _edit() async {
+    final result = await Navigator.push<Activity>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddActivityPage(existing: _activity),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _activity = result);
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus aktivitas?'),
+        content: Text('"${_activity.name}" akan dihapus permanen dan ga bisa dibalikin lagi.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      dummyActivities.remove(_activity);
+      await LocalStorage.saveActivities(dummyActivities);
+      if (mounted) Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final activity = _activity;
     final pace = _paceMinPerKm;
     final paceMin = pace.floor();
     final paceSec = ((pace - paceMin) * 60).round();
@@ -37,6 +85,18 @@ class ActivityDetailPage extends StatelessWidget {
         title: const Text('Detail Aktivitas'),
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: _edit,
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit',
+          ),
+          IconButton(
+            onPressed: _delete,
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Hapus',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
