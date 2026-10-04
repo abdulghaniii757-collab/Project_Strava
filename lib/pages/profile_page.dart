@@ -25,6 +25,20 @@ const _muted = Color(0xFFA0A0A0);
 /// Target jarak mingguan (km), disimpan di memori selama app berjalan.
 double _weeklyGoalKm = 10;
 
+// ---------- statistik ----------
+
+/// Jumlah pengikut. Selalu 0 karena app belum punya server, jadi belum ada
+/// akun lain yang bisa ngikutin user. "Mengikuti" dihitung dari
+/// followedAthletes (atlet yang diikuti lewat tombol Ikuti di Home).
+const _followers = 0;
+
+/// Angka contoh buat kartu "Statistik Saya". Masih statis, belum dihitung
+/// dari aktivitas yang dicatat.
+const _sampleActivitiesPerWeek = 8;
+const _sampleAvgTimePerWeek = '2h 15m';
+const _sampleAvgDistancePerWeek = 24.8;
+const _sampleTotalElevation = 45.0;
+
 // ---------- perlengkapan (gear) ----------
 
 /// Daftar perlengkapan. Dimuat dari penyimpanan permanen saat tab Profil
@@ -393,32 +407,12 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-<<<<<<< HEAD
-class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  // Mock data sesuai tampilan UI
-// Ubah bagian ini agar angka statistik tidak 0
-  final UserProfile user = UserProfile(
-    name: 'luli',
-    location: 'Daerah Khusus Ibukota Jakarta, Indonesia',
-    avatarUrl: 'https://via.placeholder.com/150',
-    following: 5,
-    followers: 12,
-    totalActivities4Weeks: 8, 
-    recentDistance: 24.8,     
-    recentTime: '2h 15m',     
-    recentElevation: 45.0,    
-  );
-  );
-=======
 class _ProfilePageState extends State<ProfilePage> {
   int _tab = 0; // 0 = Kemajuan, 1 = Aktivitas, 2 = Lainnya
   String _sport = 'Lari';
   _Period _period = _Period.week;
   String _activityFilter = 'Semua';
   _ActivitySort _activitySort = _ActivitySort.newest;
->>>>>>> 74a9e13d47284f9fb60aba012763b25c178b64f3
 
   @override
   void initState() {
@@ -739,7 +733,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
           const SizedBox(height: 16),
           Text(
-            '${currentUser.followers} pengikut  •  ${currentUser.following} mengikuti',
+            '$_followers pengikut  •  ${followedAthletes.length} mengikuti',
             style: const TextStyle(color: Colors.white, fontSize: 16),
           ),
           const SizedBox(height: 20),
@@ -897,6 +891,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 16),
+          _buildMyStatsCard(),
+          const SizedBox(height: 16),
           _buildGoalCard(),
           const SizedBox(height: 16),
           _buildStreakCard(),
@@ -943,6 +939,89 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  // ----- kartu Sosial & Statistik Saya -----
+
+  Widget _buildMyStatsCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.people_outline, color: _orange),
+              SizedBox(width: 8),
+              Text(
+                'Sosial',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _StatItem(label: 'Mengikuti', value: '${followedAthletes.length}'),
+              const SizedBox(width: 40),
+              const _StatItem(label: 'Pengikut', value: '$_followers'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Divider(height: 1, color: Color(0xFF2E2E2E)),
+          const SizedBox(height: 16),
+          const Row(
+            children: [
+              Icon(Icons.insights, color: _orange),
+              SizedBox(width: 8),
+              Text(
+                'Statistik Saya',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _statRow('Aktivitas / Minggu', '$_sampleActivitiesPerWeek'),
+          _statRow('Rata-rata Waktu / Minggu', _sampleAvgTimePerWeek),
+          _statRow('Rata-rata Jarak / Minggu', '${_fmtKm(_sampleAvgDistancePerWeek)} km'),
+          _statRow('Total Elevasi', '${_fmtKm(_sampleTotalElevation)} m'),
+        ],
+      ),
+    );
+  }
+
+  Widget _statRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(title, style: const TextStyle(color: _muted, fontSize: 15)),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -2305,6 +2384,7 @@ class _SettingsPageState extends State<_SettingsPage> {
     await LocalStorage.clearAll();
     dummyActivities.clear();
     _gearList.clear();
+    followedAthletes.clear();
     _weeklyGoalKm = 10;
     currentUser
       ..name = 'Pengguna'
@@ -2470,74 +2550,11 @@ class _WeeklyChartPainter extends CustomPainter {
   final List<double> values;
   final Map<int, String> monthLabels;
 
-<<<<<<< HEAD
-  Widget _buildSocialStatsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Social Stats', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Following', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                Text('${user.following}', style: const TextStyle(fontSize: 20, color: Colors.blue)),
-              ],
-            ),
-            const SizedBox(width: 32),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Followers', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                Text('${user.followers}', style: const TextStyle(fontSize: 20, color: Colors.blue)),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMyStatsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('My Stats', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Container(
-          color: Colors.grey.shade50,
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              _buildStatRow('Activities / Week', '${user.totalActivities4Weeks}'),
-              _buildStatRow('Avg Time / Week', user.recentTime),
-              _buildStatRow('Avg Distance / Week', '${user.recentDistance} km'),
-              _buildStatRow('Total Elevation', '${user.recentElevation} m'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 12, color: Colors.black87)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ],
-=======
   void _drawText(Canvas canvas, String text, Offset anchor, {bool centerX = false}) {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
         style: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 14),
->>>>>>> 74a9e13d47284f9fb60aba012763b25c178b64f3
       ),
       textDirection: TextDirection.ltr,
     )..layout();

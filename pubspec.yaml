@@ -37,6 +37,15 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # Simpan data permanen (aktivitas, profil, target, gear) di perangkat.
+  shared_preferences: ^2.3.2
+
+  # Milih foto dari galeri buat foto profil.
+  image_picker: ^1.1.2
+
+  # Milih foto profil langsung dari file explorer.
+  file_picker: ^13.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

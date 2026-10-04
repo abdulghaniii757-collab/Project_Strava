@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/activity.dart';
 import '../models/feed_post.dart';
+import '../models/user_profile.dart';
+import '../services/local_storage.dart';
 import 'feed_card.dart';
 import 'activity_detail_page.dart';
 import 'notifications_page.dart';
@@ -30,7 +32,6 @@ class _HomePageState extends State<HomePage> {
     {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
     {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},
   ];
-  final Set<String> _diikuti = {};
   bool _ikutTantangan = false;
 
   // ---- data ringkasan minggu ini ----
@@ -325,10 +326,14 @@ class _HomePageState extends State<HomePage> {
         _judulSeksi(
           'Siapa yang Harus Diikuti',
           aksi: 'Lihat Semua',
-          onAksi: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SuggestedAthletesPage(awal: _saran)),
-          ),
+          onAksi: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SuggestedAthletesPage(awal: _saran)),
+            );
+            // Refresh tombol Ikuti, siapa tau ada yang diikuti di halaman tadi.
+            if (mounted) setState(() {});
+          },
         ),
         SizedBox(
           height: 218,
@@ -346,7 +351,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _kartuSaran(Map<String, String> user) {
     final nama = user['nama']!;
-    final sudah = _diikuti.contains(nama);
+    final sudah = followedAthletes.contains(nama);
 
     return Container(
       width: 215,
@@ -398,11 +403,12 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () {
                     setState(() {
                       if (sudah) {
-                        _diikuti.remove(nama);
+                        followedAthletes.remove(nama);
                       } else {
-                        _diikuti.add(nama);
+                        followedAthletes.add(nama);
                       }
                     });
+                    LocalStorage.saveFollowing(followedAthletes);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: sudah

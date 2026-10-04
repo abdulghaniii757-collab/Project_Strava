@@ -67,10 +67,18 @@ class _MapPageState extends State<MapPage> {
             size: 30,
           ),
         ),
-        const Expanded(
-          child: Text(
-            'Cari',
-            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+        // Tulisan "Cari" juga bisa diketuk, bukan cuma ikonnya.
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _showSearch,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                'Cari',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+              ),
+            ),
           ),
         ),
         IconButton(
@@ -254,9 +262,13 @@ class _MapPageState extends State<MapPage> {
                         ),
                       ),
                       SizedBox(width: 7),
-                      Text(
-                        '7 km · 24,3 m · 0j 56m',
-                        style: TextStyle(fontSize: 15, color: Colors.black54),
+                      Expanded(
+                        child: Text(
+                          '7 km · 24,3 m · 0j 56m',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 15, color: Colors.black54),
+                        ),
                       ),
                     ],
                   ),
@@ -269,12 +281,16 @@ class _MapPageState extends State<MapPage> {
                         color: Color(0xFFE84B16),
                       ),
                       SizedBox(width: 6),
-                      Text(
-                        'Dibuat untuk Anda',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFFE84B16),
-                          fontWeight: FontWeight.w700,
+                      Flexible(
+                        child: Text(
+                          'Dibuat untuk Anda',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFFE84B16),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -311,41 +327,22 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _showSearch() async {
-    final controller = TextEditingController();
-    await showDialog<void>(
+    // Controller-nya diurus sama _TextInputDialog sendiri, biar ga dibuang
+    // waktu animasi tutup dialog masih jalan (bikin crash _dependents.isEmpty).
+    final query = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cari lokasi'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Contoh: Taman Kota',
-            prefixIcon: Icon(Icons.search),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              if (controller.text.trim().isNotEmpty) {
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: Text('Mencari "${controller.text.trim()}"'),
-                  ),
-                );
-              }
-            },
-            child: const Text('Cari'),
-          ),
-        ],
+      builder: (context) => const _TextInputDialog(
+        title: 'Cari lokasi',
+        hintText: 'Contoh: Taman Kota',
+        prefixIcon: Icons.search,
+        confirmLabel: 'Cari',
+        autofocus: true,
       ),
     );
-    controller.dispose();
+    if (!mounted || query == null || query.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Mencari "$query"')),
+    );
   }
 
   Future<void> _showLayers() async {
@@ -387,42 +384,21 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _showCreateRoute() async {
-    final nameController = TextEditingController();
-    await showDialog<void>(
+    final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Buat rute'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Nama rute',
-            hintText: 'Lari sore di sekitar kota',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(this.context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    nameController.text.trim().isEmpty
-                        ? 'Rute baru dibuat'
-                        : 'Rute "${nameController.text.trim()}" dibuat',
-                  ),
-                ),
-              );
-            },
-            child: const Text('Buat'),
-          ),
-        ],
+      builder: (context) => const _TextInputDialog(
+        title: 'Buat rute',
+        labelText: 'Nama rute',
+        hintText: 'Lari sore di sekitar kota',
+        confirmLabel: 'Buat',
       ),
     );
-    nameController.dispose();
+    if (!mounted || name == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(name.isEmpty ? 'Rute baru dibuat' : 'Rute "$name" dibuat'),
+      ),
+    );
   }
 
   void _showRouteDetails() {
@@ -454,6 +430,65 @@ class _MapPageState extends State<MapPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Dialog berisi satu kolom teks. Balikin teks yang diketik (sudah di-trim)
+/// kalau tombol konfirmasi ditekan, atau null kalau dibatalkan.
+class _TextInputDialog extends StatefulWidget {
+  const _TextInputDialog({
+    required this.title,
+    required this.confirmLabel,
+    this.labelText,
+    this.hintText,
+    this.prefixIcon,
+    this.autofocus = false,
+  });
+
+  final String title;
+  final String confirmLabel;
+  final String? labelText;
+  final String? hintText;
+  final IconData? prefixIcon;
+  final bool autofocus;
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: widget.autofocus,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+          prefixIcon: widget.prefixIcon == null ? null : Icon(widget.prefixIcon),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
     );
   }
 }

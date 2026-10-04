@@ -4,6 +4,8 @@ import 'home_page.dart';
 import 'stats_page.dart';
 import 'profile_page.dart';
 import 'add_activity_page.dart';
+import 'group_page.dart';
+import 'map_page.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -14,56 +16,9 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  int _tick =
+      0; // dinaikin tiap ada aktivitas baru biar semua halaman ikut refresh
 
-  static const _titles = ['Beranda', 'Statistik', 'Profil'];
-
-  final _pages = const [
-    HomePage(),
-    StatsPage(),
-    ProfilePage(),
-  ];
-
-import 'package:flutter/material.dart';
-import 'home_page.dart';
-import 'stats_page.dart';
-import 'profile_page.dart'; // Import profile_page
-
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
-
-  @override
-  State<MainNavigation> createState() => _MainNavigationState();
-}
-
-class _MainNavigationState extends State<MainNavigation> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _pages = [
-    const HomePage(),
-    const StatsPage(),
-    const ProfilePage(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Stats'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
-    );
-  }
-}
   Future<void> _openAddActivity() async {
     await Navigator.push(
       context,
@@ -82,6 +37,7 @@ class _MainNavigationState extends State<MainNavigation> {
       HomePage(onAddActivity: _openAddActivity),
       MapPage(onAddActivity: _openAddActivity),
       const StatsPage(),
+      const GroupPage(),
       ProfilePage(refreshTick: _tick),
     ];
 
@@ -113,8 +69,12 @@ class _MainNavigationState extends State<MainNavigation> {
             label: 'Peta',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.radio_button_checked),
-            label: 'Rekam',
+            icon: Icon(Icons.route_outlined),
+            label: 'Rute',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.groups_outlined),
+            label: 'Grup',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

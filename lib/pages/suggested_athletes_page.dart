@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/user_profile.dart';
+import '../services/local_storage.dart';
+
 class SuggestedAthletesPage extends StatefulWidget {
   const SuggestedAthletesPage({super.key, required this.awal});
 
@@ -18,7 +21,6 @@ class _SuggestedAthletesPageState extends State<SuggestedAthletesPage> {
     {'nama': 'Bagas Wicaksono', 'ket': 'Jakarta Selatan'},
     {'nama': 'Sinta Maharani', 'ket': 'Yogyakarta'},
   ];
-  final Set<String> _diikuti = {};
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +39,7 @@ class _SuggestedAthletesPageState extends State<SuggestedAthletesPage> {
         itemBuilder: (context, i) {
           final u = _daftar[i];
           final nama = u['nama']!;
-          final sudah = _diikuti.contains(nama);
+          final sudah = followedAthletes.contains(nama);
 
           return Container(
             padding: const EdgeInsets.all(12),
@@ -69,11 +71,12 @@ class _SuggestedAthletesPageState extends State<SuggestedAthletesPage> {
                   onPressed: () {
                     setState(() {
                       if (sudah) {
-                        _diikuti.remove(nama);
+                        followedAthletes.remove(nama);
                       } else {
-                        _diikuti.add(nama);
+                        followedAthletes.add(nama);
                       }
                     });
+                    LocalStorage.saveFollowing(followedAthletes);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: sudah ? Colors.grey.shade800 : Colors.deepOrange,

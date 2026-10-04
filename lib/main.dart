@@ -24,6 +24,8 @@ void main() async {
     currentUser.avatarBase64 = savedProfile.avatarBase64;
   }
 
+  followedAthletes.addAll(await LocalStorage.loadFollowing());
+
   runApp(const StravaApp());
 }
 

@@ -13,6 +13,7 @@ class LocalStorage {
   static const _kProfile = 'profile';
   static const _kGoal = 'weekly_goal_km';
   static const _kGear = 'gear_list';
+  static const _kFollowing = 'followed_athletes';
 
   static Future<void> saveActivities(List<Activity> activities) async {
     final prefs = await SharedPreferences.getInstance();
@@ -68,12 +69,24 @@ class LocalStorage {
         .toList();
   }
 
-  /// Hapus semua data yang kesimpen (aktivitas, profil, target, gear).
+  static Future<void> saveFollowing(Set<String> names) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kFollowing, names.toList());
+  }
+
+  static Future<Set<String>> loadFollowing() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_kFollowing) ?? []).toSet();
+  }
+
+  /// Hapus semua data yang kesimpen (aktivitas, profil, target, gear,
+  /// atlet yang diikuti).
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kActivities);
     await prefs.remove(_kProfile);
     await prefs.remove(_kGoal);
     await prefs.remove(_kGear);
+    await prefs.remove(_kFollowing);
   }
 }
