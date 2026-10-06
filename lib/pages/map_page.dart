@@ -26,7 +26,6 @@ class _MapPageState extends State<MapPage> {
 
   LatLng _mapCenter = const LatLng(-6.2, 106.816666);
   Position? _currentPosition;
-  List<SavedRoute> _routes = [];
   SavedRoute? _selectedRoute;
   String _routeName = '';
   bool _isCreatingRoute = false;
@@ -60,10 +59,7 @@ class _MapPageState extends State<MapPage> {
   Future<void> _loadRoutes() async {
     final routes = await LocalStorage.loadRoutes();
     if (!mounted) return;
-    setState(() {
-      _routes = routes;
-      _selectedRoute = routes.isEmpty ? null : routes.first;
-    });
+    setState(() => _selectedRoute = routes.isEmpty ? null : routes.first);
   }
 
   Future<bool> _requestLocationPermission() async {
@@ -206,11 +202,11 @@ class _MapPageState extends State<MapPage> {
   Widget _header() => Card(
     child: ListTile(
       title: const Text('Peta', style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(_selectedRoute?.name ?? 'Buat rute atau mulai jalan'),
-      trailing: IconButton(
-        tooltip: 'Rute tersimpan',
-        onPressed: _showSavedRoutes,
-        icon: const Icon(Icons.bookmarks_outlined),
+      subtitle: Text(
+        _selectedRoute == null
+            ? 'Buat rute atau mulai jalan'
+            : '${_selectedRoute!.name} · '
+                  '${_routeDistanceKm(_selectedRoute!.points).toStringAsFixed(2)} km',
       ),
     ),
   );
@@ -218,21 +214,6 @@ class _MapPageState extends State<MapPage> {
   Widget _mapControls() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (_selectedRoute != null)
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.route, color: Colors.deepOrange),
-            title: Text(_selectedRoute!.name),
-            subtitle: Text(
-              '${_routeDistanceKm(_selectedRoute!.points).toStringAsFixed(2)} km',
-            ),
-            trailing: IconButton(
-              tooltip: 'Pilih rute',
-              onPressed: _showSavedRoutes,
-              icon: const Icon(Icons.swap_horiz),
-            ),
-          ),
-        ),
       Row(
         children: [
           Expanded(
@@ -323,10 +304,32 @@ class _MapPageState extends State<MapPage> {
   );
 
   Future<void> _createRoute() async {
+    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => const _RouteNameDialog(),
+      builder: (context) => AlertDialog(
+        title: const Text('Buat rute'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nama rute',
+            hintText: 'Contoh: Keliling',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Lanjut'),
+          ),
+        ],
+      ),
     );
+    controller.dispose();
     if (!mounted || name == null) return;
     if (name.isEmpty) {
       _showMessage('Nama rute tidak boleh kosong.');
@@ -349,46 +352,14 @@ class _MapPageState extends State<MapPage> {
       name: _routeName,
       points: List<LatLng>.unmodifiable(_draftPoints),
     );
-    final routes = [route, ..._routes];
-    await LocalStorage.saveRoutes(routes);
+    await LocalStorage.saveRoutes([route]);
     if (!mounted) return;
     setState(() {
-      _routes = routes;
       _selectedRoute = route;
       _isCreatingRoute = false;
       _draftPoints.clear();
     });
     _showMessage('Rute "${route.name}" disimpan.');
-  }
-
-  Future<void> _showSavedRoutes() async {
-    if (_routes.isEmpty) {
-      _showMessage('Belum ada rute tersimpan.');
-      return;
-    }
-    final route = await showModalBottomSheet<SavedRoute>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('Pilih rute')),
-            for (final item in _routes)
-              ListTile(
-                leading: const Icon(Icons.route),
-                title: Text(item.name),
-                subtitle: Text(
-                  '${_routeDistanceKm(item.points).toStringAsFixed(2)} km',
-                ),
-                onTap: () => Navigator.pop(context, item),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || route == null) return;
-    setState(() => _selectedRoute = route);
-    if (route.points.isNotEmpty) _mapController.move(route.points.first, 15);
   }
 
   Future<void> _startWalk() async {
@@ -480,54 +451,12 @@ class _MapPageState extends State<MapPage> {
   }
 
   String _formatActivityDuration(Duration duration) {
-    final minutes = duration.inSeconds ~/ 60;
-    final seconds = duration.inSeconds.remainder(60);
-    return '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
+    return '${duration.inMinutes.toString().padLeft(2, '0')}:'
+        '${duration.inSeconds.remainder(60).toString().padLeft(2, '0')}';
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
-}
-
-class _RouteNameDialog extends StatefulWidget {
-  const _RouteNameDialog();
-
-  @override
-  State<_RouteNameDialog> createState() => _RouteNameDialogState();
-}
-
-class _RouteNameDialogState extends State<_RouteNameDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Buat rute'),
-    content: TextField(
-      controller: _controller,
-      autofocus: true,
-      decoration: const InputDecoration(
-        labelText: 'Nama rute',
-        hintText: 'Contoh: Jalan pagi',
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Batal'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop(context, _controller.text.trim()),
-        child: const Text('Lanjut'),
-      ),
-    ],
-  );
 }
