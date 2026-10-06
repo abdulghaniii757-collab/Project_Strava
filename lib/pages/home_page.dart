@@ -4,6 +4,7 @@ import '../models/activity.dart';
 import '../models/feed_post.dart';
 import '../models/user_profile.dart';
 import '../services/local_storage.dart';
+import '../widgets/trekora_logo.dart';
 import 'feed_card.dart';
 import 'activity_detail_page.dart';
 import 'notifications_page.dart';
@@ -28,7 +29,7 @@ class _HomePageState extends State<HomePage> {
 
   final List<Map<String, String>> _saran = [
     {'nama': 'Rafi Ananda', 'ket': 'Sering lari pagi di sekitar kamu'},
-    {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Strava'},
+    {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Trekora'},
     {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
     {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},
   ];
@@ -113,21 +114,7 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
       child: Row(
         children: [
-          Icon(
-            Icons.directions_run,
-            color: Colors.deepOrange.shade400,
-            size: 26,
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'strava',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 25,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-            ),
-          ),
+          const TrekoraWordmark(),
           const Spacer(),
           IconButton(
             onPressed: widget.onAddActivity,

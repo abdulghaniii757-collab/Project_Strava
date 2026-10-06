@@ -26,16 +26,16 @@ void main() async {
 
   followedAthletes.addAll(await LocalStorage.loadFollowing());
 
-  runApp(const StravaApp());
+  runApp(const TrekoraApp());
 }
 
-class StravaApp extends StatelessWidget {
-  const StravaApp({super.key});
+class TrekoraApp extends StatelessWidget {
+  const TrekoraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Strava Clone',
+      title: 'Trekora',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,

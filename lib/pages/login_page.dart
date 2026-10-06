@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/trekora_logo.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -58,25 +60,12 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(height: 40),
               // Logo / Wordmark
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.directions_run,
-                    color: Colors.deepOrange.shade400,
-                    size: 36,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'strava',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+              const Center(
+                child: TrekoraWordmark(
+                  logoSize: 40,
+                  fontSize: 34,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               Text(

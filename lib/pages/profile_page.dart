@@ -11,6 +11,7 @@ import '../models/activity.dart';
 import '../models/gear.dart';
 import '../models/user_profile.dart';
 import '../services/local_storage.dart';
+import '../widgets/trekora_logo.dart';
 import 'activity_detail_page.dart';
 import 'add_activity_page.dart';
 import 'help_page.dart';
@@ -571,7 +572,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _shareProfile() async {
     final totalKm = dummyActivities.fold<double>(0, (sum, a) => sum + a.distanceKm);
-    final text = '${currentUser.name} di Strava Clone: '
+    final text = '${currentUser.name} di Trekora: '
         '${dummyActivities.length} aktivitas, ${_fmtKm(totalKm)} km total';
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) _showSnack('Ringkasan profil disalin ke clipboard');
@@ -2404,9 +2405,9 @@ class _SettingsPageState extends State<_SettingsPage> {
   void _showAbout() {
     showAboutDialog(
       context: context,
-      applicationName: 'Strava Clone',
+      applicationName: 'Trekora',
       applicationVersion: '1.0.0',
-      applicationIcon: const Icon(Icons.directions_run, color: _orange, size: 40),
+      applicationIcon: Image.asset(trekoraLogoPath, width: 48, height: 48),
       children: const [
         Text('Aplikasi pencatat aktivitas lari, sepeda, dan jalan kaki.'),
       ],

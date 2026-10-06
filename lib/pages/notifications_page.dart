@@ -28,7 +28,7 @@ final List<NotificationItem> _dummyNotifikasi = [
     icon: Icons.chat_bubble,
   ),
   NotificationItem(
-    name: 'Strava',
+    name: 'Trekora',
     aksi: 'Tantangan 50 KM Bulan Ini akan berakhir 3 hari lagi',
     waktu: '1 hari lalu',
     icon: Icons.emoji_events,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 final List<Map<String, String>> _dummyHasil = [
-  {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Strava'},
+  {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Trekora'},
   {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
   {'nama': 'Rafi Ananda', 'ket': 'Sering lari pagi di sekitar kamu'},
   {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},

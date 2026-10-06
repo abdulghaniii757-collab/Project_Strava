@@ -10,9 +10,9 @@ import 'package:project_strava/main.dart';
 
 void main() {
   testWidgets('app menampilkan halaman login', (WidgetTester tester) async {
-    await tester.pumpWidget(const StravaApp());
+    await tester.pumpWidget(const TrekoraApp());
 
-    expect(find.text('strava'), findsOneWidget);
+    expect(find.text('Trekora'), findsOneWidget);
     expect(find.text('MASUK'), findsOneWidget);
   });
 }
