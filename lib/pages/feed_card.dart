@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/feed_post.dart';
+import '../widgets/activity_route_map.dart';
 import 'route_map.dart';
 
 class FeedCard extends StatefulWidget {
@@ -132,7 +133,12 @@ class _FeedCardState extends State<FeedCard> {
                 _judul(),
                 _stat(),
                 const SizedBox(height: 14),
-                if (p.photoCount > 0) _foto() else if (p.showMap) RouteMap(seed: p.title.hashCode + p.userName.hashCode),
+                if (p.photoCount > 0)
+                  _foto()
+                else if (p.source?.hasRoute ?? false)
+                  ActivityRouteMap(points: p.source!.routePoints)
+                else if (p.showMap)
+                  RouteMap(seed: p.title.hashCode + p.userName.hashCode),
               ],
             ),
           ),

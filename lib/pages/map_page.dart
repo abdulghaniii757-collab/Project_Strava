@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../models/activity.dart';
 import '../models/saved_route.dart';
 import '../services/local_storage.dart';
+import '../widgets/save_activity_dialog.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key, required this.onActivityRecorded});
@@ -30,6 +31,7 @@ class _MapPageState extends State<MapPage> {
   String _routeName = '';
   bool _isCreatingRoute = false;
   bool _isRecording = false;
+  String _activityType = 'Jalan Kaki';
   DateTime? _recordingStartedAt;
   Duration _elapsed = Duration.zero;
   double _distanceMeters = 0;
@@ -226,9 +228,9 @@ class _MapPageState extends State<MapPage> {
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _startWalk,
-              icon: const Icon(Icons.directions_walk),
-              label: const Text('Mulai jalan'),
+              onPressed: _chooseTypeAndStart,
+              icon: const Icon(Icons.fiber_manual_record),
+              label: const Text('Mulai rekam'),
             ),
           ),
         ],
@@ -269,9 +271,15 @@ class _MapPageState extends State<MapPage> {
 
   Widget _recordingControls() => _bottomCard(
     children: [
-      const Text(
-        'Jalan kaki sedang direkam',
-        style: TextStyle(fontWeight: FontWeight.w600),
+      Row(
+        children: [
+          Icon(activityIcon(_activityType), size: 18, color: Colors.deepOrange),
+          const SizedBox(width: 6),
+          Text(
+            '${activityVerb(_activityType)} sedang direkam',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
       Row(
         children: [
@@ -304,32 +312,12 @@ class _MapPageState extends State<MapPage> {
   );
 
   Future<void> _createRoute() async {
-    final controller = TextEditingController();
+    // Controller nama rute diurus sama _RouteNameDialog sendiri. Kalau di-dispose
+    // di sini, TextField-nya masih kepakai selama animasi dialog nutup -> error.
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Buat rute'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nama rute',
-            hintText: 'Contoh: Keliling',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Lanjut'),
-          ),
-        ],
-      ),
+      builder: (context) => const _RouteNameDialog(),
     );
-    controller.dispose();
     if (!mounted || name == null) return;
     if (name.isEmpty) {
       _showMessage('Nama rute tidak boleh kosong.');
@@ -360,6 +348,13 @@ class _MapPageState extends State<MapPage> {
       _draftPoints.clear();
     });
     _showMessage('Rute "${route.name}" disimpan.');
+  }
+
+  Future<void> _chooseTypeAndStart() async {
+    final type = await showActivityTypePicker(context);
+    if (!mounted || type == null) return;
+    setState(() => _activityType = type);
+    await _startWalk();
   }
 
   Future<void> _startWalk() async {
@@ -426,21 +421,32 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
+    final summary =
+        '${distanceKm.toStringAsFixed(2)} km · ${_formatDuration(duration)}';
+    final info = await showSaveActivityDialog(
+      context,
+      summary: summary,
+      initialType: _activityType,
+    );
+    if (!mounted) return;
+    if (info == null) {
+      _showMessage('Rekaman dibuang.');
+      return;
+    }
+
     final activity = Activity(
-      name: 'Jalan kaki',
-      type: 'Jalan Kaki',
+      name: info.name,
+      type: info.type,
       distanceKm: distanceKm,
       duration: _formatActivityDuration(duration),
       date: startedAt,
+      routePoints: List.unmodifiable(_recordedPoints),
     );
     dummyActivities.insert(0, activity);
     await LocalStorage.saveActivities(dummyActivities);
     if (!mounted) return;
     widget.onActivityRecorded();
-    _showMessage(
-      'Jalan tersimpan: ${distanceKm.toStringAsFixed(2)} km · '
-      '${_formatDuration(duration)}',
-    );
+    _showMessage('${info.name} tersimpan: $summary');
   }
 
   void _stopRecording() {
@@ -458,5 +464,47 @@ class _MapPageState extends State<MapPage> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _RouteNameDialog extends StatefulWidget {
+  const _RouteNameDialog();
+
+  @override
+  State<_RouteNameDialog> createState() => _RouteNameDialogState();
+}
+
+class _RouteNameDialogState extends State<_RouteNameDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buat rute'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: 'Nama rute',
+          hintText: 'Contoh: Keliling',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: const Text('Lanjut'),
+        ),
+      ],
+    );
   }
 }
