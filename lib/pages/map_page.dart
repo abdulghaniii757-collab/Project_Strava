@@ -1,74 +1,132 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../models/activity.dart';
+import '../models/saved_route.dart';
+import '../services/local_storage.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({super.key, required this.onAddActivity});
+  const MapPage({super.key, required this.onActivityRecorded});
 
-  final VoidCallback onAddActivity;
+  final VoidCallback onActivityRecorded;
 
   @override
   State<MapPage> createState() => _MapPageState();
 }
 
 class _MapPageState extends State<MapPage> {
-  String _selectedFilter = 'Rute';
-  bool _isSaved = false;
-  bool _showRoute = true;
+  final _mapController = MapController();
+  final _draftPoints = <LatLng>[];
+  final _recordedPoints = <LatLng>[];
+  final _distance = const Distance();
 
-  final MapController _mapController = MapController();
+  LatLng _mapCenter = const LatLng(-6.2, 106.816666);
   Position? _currentPosition;
-  
-  // Posisi default (misal Jakarta)
-  LatLng _currentCenter = const LatLng(-6.200000, 106.816666);
+  List<SavedRoute> _routes = [];
+  SavedRoute? _selectedRoute;
+  String _routeName = '';
+  bool _isCreatingRoute = false;
+  bool _isRecording = false;
+  DateTime? _recordingStartedAt;
+  Duration _elapsed = Duration.zero;
+  double _distanceMeters = 0;
+  StreamSubscription<Position>? _positionSubscription;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    _loadRoutes();
+    _loadCurrentLocation();
   }
 
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    _timer?.cancel();
+    super.dispose();
+  }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
+  List<LatLng> get _visiblePoints {
+    if (_isRecording) return _recordedPoints;
+    if (_isCreatingRoute) return _draftPoints;
+    return _selectedRoute?.points ?? [];
+  }
+
+  Future<void> _loadRoutes() async {
+    final routes = await LocalStorage.loadRoutes();
+    if (!mounted) return;
+    setState(() {
+      _routes = routes;
+      _selectedRoute = routes.isEmpty ? null : routes.first;
+    });
+  }
+
+  Future<bool> _requestLocationPermission() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      _showMessage('Aktifkan layanan lokasi terlebih dahulu.');
+      return false;
     }
 
-    if (permission == LocationPermission.deniedForever) return;
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      _showMessage('Izin lokasi diperlukan untuk menggunakan GPS.');
+      return false;
+    }
+    return true;
+  }
 
+  Future<void> _loadCurrentLocation() async {
+    if (!await _requestLocationPermission()) return;
     final position = await Geolocator.getCurrentPosition();
+    if (!mounted) return;
     setState(() {
       _currentPosition = position;
-      _currentCenter = LatLng(position.latitude, position.longitude);
+      _mapCenter = LatLng(position.latitude, position.longitude);
     });
-
-    _centerMap();
+    _mapController.move(_mapCenter, 15);
   }
 
   void _centerMap() {
-    if (_currentPosition != null) {
-      _mapController.move(
-        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-        16.0,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Peta dipusatkan ke lokasi Anda')),
-      );
+    final position = _currentPosition;
+    if (position == null) {
+      _loadCurrentLocation();
+      return;
     }
+    _mapController.move(LatLng(position.latitude, position.longitude), 16);
   }
 
-  List<LatLng> _getRoutePoints() {
-    if (!_showRoute || _currentPosition == null) return [];
-    return [
-      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-      LatLng(_currentPosition!.latitude + 0.005, _currentPosition!.longitude + 0.005),
-      LatLng(_currentPosition!.latitude + 0.002, _currentPosition!.longitude + 0.010),
-    ];
+  void _onMapTap(TapPosition tapPosition, LatLng point) {
+    if (_isCreatingRoute) setState(() => _draftPoints.add(point));
+  }
+
+  double _routeDistanceKm(List<LatLng> points) {
+    var meters = 0.0;
+    for (var i = 1; i < points.length; i++) {
+      meters += _distance.as(LengthUnit.Meter, points[i - 1], points[i]);
+    }
+    return meters / 1000;
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:'
+          '${minutes.toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${duration.inMinutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -76,45 +134,46 @@ class _MapPageState extends State<MapPage> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Peta Interaktif (OpenStreetMap - Gratis & Tanpa API Key)
           Positioned.fill(
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: _currentCenter,
-                initialZoom: 15.0,
+                initialCenter: _mapCenter,
+                initialZoom: 15,
+                onTap: _onMapTap,
               ),
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.app',
+                  userAgentPackageName: 'com.example.project_strava',
                 ),
-                // Gambar rute lari
-                PolylineLayer(
-                  polylines: [
-                    if (_getRoutePoints().isNotEmpty)
+                SimpleAttributionWidget(
+                  source: const Text('© OpenStreetMap contributors'),
+                ),
+                if (_visiblePoints.length > 1)
+                  PolylineLayer(
+                    polylines: [
                       Polyline(
-                        points: _getRoutePoints(),
-                        strokeWidth: 6.0,
-                        color: const Color(0xFFE84B16), // Orange Strava
+                        points: _visiblePoints,
+                        strokeWidth: 5,
+                        color: Colors.deepOrange,
                       ),
-                  ],
-                ),
-                // Gambar titik biru lokasi kita
+                    ],
+                  ),
                 if (_currentPosition != null)
                   MarkerLayer(
                     markers: [
                       Marker(
-                        point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-                        width: 24,
-                        height: 24,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1475C9),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                          ),
+                        point: LatLng(
+                          _currentPosition!.latitude,
+                          _currentPosition!.longitude,
+                        ),
+                        width: 28,
+                        height: 28,
+                        child: const Icon(
+                          Icons.my_location,
+                          color: Colors.blue,
+                          size: 24,
                         ),
                       ),
                     ],
@@ -123,300 +182,352 @@ class _MapPageState extends State<MapPage> {
             ),
           ),
           SafeArea(
-            child: Column(
-              children: [
-                _topBar(),
-                const SizedBox(height: 12),
-                _filters(),
-                const Spacer(),
-                _mapActions(),
-                _routeCard(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _topBar() => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 14),
-    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(17),
-      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14)],
-    ),
-    child: Row(
-      children: [
-        IconButton(
-          onPressed: _showSearch,
-          icon: const Icon(Icons.directions_run, color: Color(0xFFE84B16), size: 30),
-        ),
-        Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _showSearch,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: Text('Cari', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ),
-        IconButton(
-          onPressed: _toggleSaved,
-          icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, size: 29),
-        ),
-        TextButton(
-          onPressed: _toggleSaved,
-          child: Text(
-            _isSaved ? 'Tersimpan' : 'Simpan',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black),
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _filters() => SizedBox(
-    height: 52,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      children: [
-        for (final filter in ['Rute', 'Panjang', 'Kesulitan', 'Elevasi', 'Permukaan'])
-          GestureDetector(
-            onTap: () => setState(() => _selectedFilter = filter),
-            child: _MapChip(filter, selected: _selectedFilter == filter),
-          ),
-      ],
-    ),
-  );
-
-  Widget _mapActions() => Align(
-    alignment: Alignment.centerRight,
-    child: Padding(
-      padding: const EdgeInsets.only(right: 16, bottom: 10),
-      child: Column(
-        children: [
-          GestureDetector(onTap: _showLayers, child: _roundAction(Icons.layers_outlined, badge: '2')),
-          const SizedBox(height: 10),
-          GestureDetector(onTap: _centerMap, child: _roundAction(Icons.my_location)),
-          const SizedBox(height: 12),
-          FloatingActionButton.extended(
-            heroTag: 'create-route',
-            onPressed: _showCreateRoute,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            icon: const Icon(Icons.edit_location_alt_outlined),
-            label: const Text('Buat Rute', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _roundAction(IconData icon, {String? label, String? badge}) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      Container(
-        width: 64,
-        height: 64,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
-        ),
-        child: Center(
-          child: label == null
-              ? Icon(icon, size: 32)
-              : Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-        ),
-      ),
-      if (badge != null)
-        Positioned(
-          right: -2,
-          top: -5,
-          child: Container(
-            padding: const EdgeInsets.all(7),
-            decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
-            child: Text(badge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ),
-    ],
-  );
-
-  Widget _routeCard() => GestureDetector(
-    onTap: _showRouteDetails,
-    child: Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-      height: 142,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 136,
-            decoration: const BoxDecoration(
-              color: Color(0xFF55735F),
-              borderRadius: BorderRadius.horizontal(left: Radius.circular(22)),
-            ),
-            child: const Icon(Icons.park_outlined, color: Colors.white, size: 54),
-          ),
-          const Expanded(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(14, 15, 10, 10),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Jalan Tanjung Gedong-J...', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                  SizedBox(height: 11),
-                  Row(
-                    children: [
-                      Icon(Icons.directions_run, size: 22, color: Colors.black54),
-                      SizedBox(width: 6),
-                      Text('Mudah', style: TextStyle(fontSize: 16, color: Color(0xFF4D9427), fontWeight: FontWeight.w800)),
-                      SizedBox(width: 7),
-                      Expanded(child: Text('7 km · 24,3 m · 0j 56m', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, color: Colors.black54))),
-                    ],
-                  ),
-                  SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(Icons.explore_outlined, size: 22, color: Color(0xFFE84B16)),
-                      SizedBox(width: 6),
-                      Flexible(child: Text('Dibuat untuk Anda', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, color: Color(0xFFE84B16), fontWeight: FontWeight.w700))),
-                    ],
-                  ),
+                  _header(),
+                  const Spacer(),
+                  if (_isRecording)
+                    _recordingControls()
+                  else if (_isCreatingRoute)
+                    _routeControls()
+                  else
+                    _mapControls(),
                 ],
               ),
             ),
           ),
-          const Padding(padding: EdgeInsets.only(right: 14), child: Icon(Icons.bookmark_border, size: 28)),
         ],
+      ),
+    );
+  }
+
+  Widget _header() => Card(
+    child: ListTile(
+      title: const Text('Peta', style: TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(_selectedRoute?.name ?? 'Buat rute atau mulai jalan'),
+      trailing: IconButton(
+        tooltip: 'Rute tersimpan',
+        onPressed: _showSavedRoutes,
+        icon: const Icon(Icons.bookmarks_outlined),
       ),
     ),
   );
 
-  void _toggleSaved() {
-    setState(() => _isSaved = !_isSaved);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isSaved ? 'Rute disimpan' : 'Rute dihapus dari simpanan')));
-  }
-
-  Future<void> _showSearch() async {
-    final query = await showDialog<String>(
-      context: context,
-      builder: (context) => const _TextInputDialog(title: 'Cari lokasi', hintText: 'Contoh: Taman Kota', prefixIcon: Icons.search, confirmLabel: 'Cari', autofocus: true),
-    );
-    if (!mounted || query == null || query.isEmpty) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Mencari "$query"')));
-  }
-
-  Future<void> _showLayers() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(title: Text('Tampilan peta', style: TextStyle(fontWeight: FontWeight.w700))),
-              SwitchListTile(
-                title: const Text('Rute rekomendasi'),
-                value: _showRoute,
-                onChanged: (value) {
-                  setState(() => _showRoute = value);
-                  setSheetState(() {});
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+  Widget _mapControls() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (_selectedRoute != null)
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.route, color: Colors.deepOrange),
+            title: Text(_selectedRoute!.name),
+            subtitle: Text(
+              '${_routeDistanceKm(_selectedRoute!.points).toStringAsFixed(2)} km',
+            ),
+            trailing: IconButton(
+              tooltip: 'Pilih rute',
+              onPressed: _showSavedRoutes,
+              icon: const Icon(Icons.swap_horiz),
+            ),
           ),
         ),
+      Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: _createRoute,
+              icon: const Icon(Icons.edit_road),
+              label: const Text('Buat rute'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _startWalk,
+              icon: const Icon(Icons.directions_walk),
+              label: const Text('Mulai jalan'),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+      Align(
+        alignment: Alignment.centerRight,
+        child: IconButton.filledTonal(
+          tooltip: 'Lokasi saya',
+          onPressed: _centerMap,
+          icon: const Icon(Icons.my_location),
+        ),
+      ),
+    ],
+  );
 
-  Future<void> _showCreateRoute() async {
+  Widget _routeControls() => _bottomCard(
+    children: [
+      Text(
+        'Ketuk peta untuk menambahkan titik (${_draftPoints.length})',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      Text('Jarak: ${_routeDistanceKm(_draftPoints).toStringAsFixed(2)} km'),
+      Row(
+        children: [
+          TextButton(
+            onPressed: () => setState(() {
+              _isCreatingRoute = false;
+              _draftPoints.clear();
+            }),
+            child: const Text('Batal'),
+          ),
+          const Spacer(),
+          FilledButton(onPressed: _saveRoute, child: const Text('Simpan rute')),
+        ],
+      ),
+    ],
+  );
+
+  Widget _recordingControls() => _bottomCard(
+    children: [
+      const Text(
+        'Jalan kaki sedang direkam',
+        style: TextStyle(fontWeight: FontWeight.w600),
+      ),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${_formatDuration(_elapsed)}  ·  '
+              '${(_distanceMeters / 1000).toStringAsFixed(2)} km',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _finishWalk,
+            icon: const Icon(Icons.stop),
+            label: const Text('Selesai'),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _bottomCard({required List<Widget> children}) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
+    ),
+  );
+
+  Future<void> _createRoute() async {
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => const _TextInputDialog(title: 'Buat rute', labelText: 'Nama rute', hintText: 'Lari sore di sekitar kota', confirmLabel: 'Buat'),
+      builder: (context) => const _RouteNameDialog(),
     );
     if (!mounted || name == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(name.isEmpty ? 'Rute baru dibuat' : 'Rute "$name" dibuat')));
+    if (name.isEmpty) {
+      _showMessage('Nama rute tidak boleh kosong.');
+      return;
+    }
+    setState(() {
+      _routeName = name;
+      _draftPoints.clear();
+      _isCreatingRoute = true;
+    });
   }
 
-  void _showRouteDetails() {
-    showModalBottomSheet<void>(
+  Future<void> _saveRoute() async {
+    if (_draftPoints.length < 2) {
+      _showMessage('Tambahkan minimal 2 titik pada peta.');
+      return;
+    }
+
+    final route = SavedRoute(
+      name: _routeName,
+      points: List<LatLng>.unmodifiable(_draftPoints),
+    );
+    final routes = [route, ..._routes];
+    await LocalStorage.saveRoutes(routes);
+    if (!mounted) return;
+    setState(() {
+      _routes = routes;
+      _selectedRoute = route;
+      _isCreatingRoute = false;
+      _draftPoints.clear();
+    });
+    _showMessage('Rute "${route.name}" disimpan.');
+  }
+
+  Future<void> _showSavedRoutes() async {
+    if (_routes.isEmpty) {
+      _showMessage('Belum ada rute tersimpan.');
+      return;
+    }
+    final route = await showModalBottomSheet<SavedRoute>(
       context: context,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Jalan Tanjung Gedong-J...', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 12),
-              const Text('Rute mudah sejauh 7 km dengan elevasi 24,3 m.'),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  widget.onAddActivity();
-                },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Mulai aktivitas'),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('Pilih rute')),
+            for (final item in _routes)
+              ListTile(
+                leading: const Icon(Icons.route),
+                title: Text(item.name),
+                subtitle: Text(
+                  '${_routeDistanceKm(item.points).toStringAsFixed(2)} km',
+                ),
+                onTap: () => Navigator.pop(context, item),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
+    if (!mounted || route == null) return;
+    setState(() => _selectedRoute = route);
+    if (route.points.isNotEmpty) _mapController.move(route.points.first, 15);
   }
-}
 
-class _TextInputDialog extends StatefulWidget {
-  const _TextInputDialog({required this.title, required this.confirmLabel, this.labelText, this.hintText, this.prefixIcon, this.autofocus = false});
-  final String title;
-  final String confirmLabel;
-  final String? labelText;
-  final String? hintText;
-  final IconData? prefixIcon;
-  final bool autofocus;
-  @override State<_TextInputDialog> createState() => _TextInputDialogState();
-}
+  Future<void> _startWalk() async {
+    if (!await _requestLocationPermission() || !mounted) return;
+    final position = await Geolocator.getCurrentPosition();
+    if (!mounted) return;
+    final start = LatLng(position.latitude, position.longitude);
+    setState(() {
+      _currentPosition = position;
+      _recordedPoints
+        ..clear()
+        ..add(start);
+      _distanceMeters = 0;
+      _elapsed = Duration.zero;
+      _recordingStartedAt = DateTime.now();
+      _isRecording = true;
+    });
+    _mapController.move(start, 16);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final startedAt = _recordingStartedAt;
+      if (!mounted || startedAt == null) return;
+      setState(() => _elapsed = DateTime.now().difference(startedAt));
+    });
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 3,
+      ),
+    ).listen(_onPosition, onError: _onLocationError);
+  }
 
-class _TextInputDialogState extends State<_TextInputDialog> {
-  final _controller = TextEditingController();
-  @override void dispose() { _controller.dispose(); super.dispose(); }
-  @override Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(controller: _controller, autofocus: widget.autofocus, decoration: InputDecoration(labelText: widget.labelText, hintText: widget.hintText, prefixIcon: widget.prefixIcon == null ? null : Icon(widget.prefixIcon))),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-        FilledButton(onPressed: () => Navigator.pop(context, _controller.text.trim()), child: Text(widget.confirmLabel)),
-      ],
+  void _onPosition(Position position) {
+    if (!mounted || !_isRecording || _recordedPoints.isEmpty) return;
+    final point = LatLng(position.latitude, position.longitude);
+    final addedDistance = _distance.as(
+      LengthUnit.Meter,
+      _recordedPoints.last,
+      point,
+    );
+    if (addedDistance < 1) return;
+    setState(() {
+      _recordedPoints.add(point);
+      _distanceMeters += addedDistance;
+      _currentPosition = position;
+    });
+  }
+
+  void _onLocationError(Object error) {
+    _stopRecording();
+    if (!mounted) return;
+    setState(() => _isRecording = false);
+    _showMessage('Gagal membaca lokasi: $error');
+  }
+
+  Future<void> _finishWalk() async {
+    _stopRecording();
+    final startedAt = _recordingStartedAt;
+    final duration = _elapsed;
+    final distanceKm = _distanceMeters / 1000;
+    setState(() => _isRecording = false);
+
+    if (startedAt == null || distanceKm <= 0 || duration.inSeconds <= 0) {
+      _showMessage('Belum ada jarak yang tercatat. Coba jalan sebentar lagi.');
+      return;
+    }
+
+    final activity = Activity(
+      name: 'Jalan kaki',
+      type: 'Jalan Kaki',
+      distanceKm: distanceKm,
+      duration: _formatActivityDuration(duration),
+      date: startedAt,
+    );
+    dummyActivities.insert(0, activity);
+    await LocalStorage.saveActivities(dummyActivities);
+    if (!mounted) return;
+    widget.onActivityRecorded();
+    _showMessage(
+      'Jalan tersimpan: ${distanceKm.toStringAsFixed(2)} km · '
+      '${_formatDuration(duration)}',
     );
   }
+
+  void _stopRecording() {
+    _timer?.cancel();
+    _timer = null;
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+  }
+
+  String _formatActivityDuration(Duration duration) {
+    final minutes = duration.inSeconds ~/ 60;
+    final seconds = duration.inSeconds.remainder(60);
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
-class _MapChip extends StatelessWidget {
-  const _MapChip(this.label, {this.selected = false});
-  final String label;
-  final bool selected;
-  @override Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(right: 10),
-    padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 11),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(28),
-      border: Border.all(color: selected ? const Color(0xFFE84B16) : Colors.black12, width: selected ? 2 : 1),
+class _RouteNameDialog extends StatefulWidget {
+  const _RouteNameDialog();
+
+  @override
+  State<_RouteNameDialog> createState() => _RouteNameDialogState();
+}
+
+class _RouteNameDialogState extends State<_RouteNameDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Buat rute'),
+    content: TextField(
+      controller: _controller,
+      autofocus: true,
+      decoration: const InputDecoration(
+        labelText: 'Nama rute',
+        hintText: 'Contoh: Jalan pagi',
+      ),
     ),
-    child: Text(label, style: TextStyle(fontSize: 16, color: selected ? const Color(0xFFE84B16) : Colors.black, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Batal'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _controller.text.trim()),
+        child: const Text('Lanjut'),
+      ),
+    ],
   );
 }

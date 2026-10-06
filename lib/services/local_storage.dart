@@ -4,16 +4,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/activity.dart';
 import '../models/gear.dart';
+import '../models/saved_route.dart';
 import '../models/user_profile.dart';
 
-/// Semua baca/tulis data permanen (shared_preferences) dikumpulin di sini,
-/// biar halaman lain tinggal panggil, ga perlu tau soal shared_preferences.
 class LocalStorage {
   static const _kActivities = 'activities';
   static const _kProfile = 'profile';
   static const _kGoal = 'weekly_goal_km';
   static const _kGear = 'gear_list';
   static const _kFollowing = 'followed_athletes';
+  static const _kRoutes = 'saved_routes';
+
+  static Future<void> saveRoutes(List<SavedRoute> routes) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = routes.map((route) => route.toJson()).toList();
+    await prefs.setString(_kRoutes, jsonEncode(jsonList));
+  }
+
+  static Future<List<SavedRoute>> loadRoutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kRoutes);
+    if (raw == null) return [];
+    final decoded = jsonDecode(raw) as List;
+    return decoded
+        .map((route) => SavedRoute.fromJson(route as Map<String, dynamic>))
+        .toList();
+  }
 
   static Future<void> saveActivities(List<Activity> activities) async {
     final prefs = await SharedPreferences.getInstance();
@@ -79,8 +95,6 @@ class LocalStorage {
     return (prefs.getStringList(_kFollowing) ?? []).toSet();
   }
 
-  /// Hapus semua data yang kesimpen (aktivitas, profil, target, gear,
-  /// atlet yang diikuti).
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kActivities);
@@ -88,5 +102,6 @@ class LocalStorage {
     await prefs.remove(_kGoal);
     await prefs.remove(_kGear);
     await prefs.remove(_kFollowing);
+    await prefs.remove(_kRoutes);
   }
 }
