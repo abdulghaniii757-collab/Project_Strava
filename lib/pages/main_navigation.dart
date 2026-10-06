@@ -35,7 +35,9 @@ class _MainNavigationState extends State<MainNavigation> {
     // nampilin data terbaru setelah aktivitas ditambah atau pindah tab.
     final pages = [
       HomePage(onAddActivity: _openAddActivity),
-      MapPage(onAddActivity: _openAddActivity),
+      MapPage(
+        onActivityRecorded: () => setState(() => _tick++),
+      ),
       const StatsPage(),
       const GroupPage(),
       ProfilePage(refreshTick: _tick),
