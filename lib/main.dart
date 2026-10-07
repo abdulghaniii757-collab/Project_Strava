@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'models/activity.dart';
+import 'models/post_comment.dart';
 import 'models/user_profile.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
@@ -26,6 +27,7 @@ void main() async {
 
   followedAthletes.addAll(await LocalStorage.loadFollowing());
   await ChallengeService.load();
+  postComments.addAll(await LocalStorage.loadComments());
 
   runApp(const TrekoraApp());
 }

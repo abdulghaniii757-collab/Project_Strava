@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/activity.dart';
 import '../models/challenge.dart';
 import '../models/feed_post.dart';
+import '../models/post_comment.dart';
 import '../models/user_profile.dart';
 import '../services/challenge_service.dart';
 import '../services/local_storage.dart';
@@ -89,6 +90,9 @@ class _HomePageState extends State<HomePage> {
                           ? null
                           : () {
                               setState(() => dummyActivities.remove(posts[i].source));
+                              if (postComments.remove(posts[i].commentKey) != null) {
+                                LocalStorage.saveComments(postComments);
+                              }
                               _info('Aktivitas dihapus');
                             },
                       onHide: posts[i].source != null
@@ -459,7 +463,7 @@ class _HomePageState extends State<HomePage> {
     await ChallengeService.setJoined(!sudahIkut);
     if (!mounted) return;
     setState(() {});
-    // Siapa tau jaraknya bulan ini udah lewat 50 km waktu baru gabung.
+    
     if (!sudahIkut) await ChallengeService.checkCompletion(context);
     if (mounted) setState(() {});
   }

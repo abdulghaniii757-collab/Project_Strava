@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/activity.dart';
 import '../models/gear.dart';
+import '../models/post_comment.dart';
 import '../models/saved_route.dart';
 import '../models/user_profile.dart';
 
@@ -16,6 +17,30 @@ class LocalStorage {
   static const _kRoutes = 'saved_routes';
   static const _kChallengeJoined = 'challenge_joined_months';
   static const _kChallengeDone = 'challenge_completed_months';
+  static const _kComments = 'post_comments';
+
+  static Future<void> saveComments(Map<String, List<PostComment>> comments) async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = comments.map(
+      (key, list) => MapEntry(key, list.map((c) => c.toJson()).toList()),
+    );
+    await prefs.setString(_kComments, jsonEncode(json));
+  }
+
+  static Future<Map<String, List<PostComment>>> loadComments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kComments);
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map(
+      (key, list) => MapEntry(
+        key,
+        (list as List)
+            .map((c) => PostComment.fromJson(c as Map<String, dynamic>))
+            .toList(),
+      ),
+    );
+  }
 
   static Future<void> saveRoutes(List<SavedRoute> routes) async {
     final prefs = await SharedPreferences.getInstance();
@@ -125,5 +150,6 @@ class LocalStorage {
     await prefs.remove(_kRoutes);
     await prefs.remove(_kChallengeJoined);
     await prefs.remove(_kChallengeDone);
+    await prefs.remove(_kComments);
   }
 }

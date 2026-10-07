@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/feed_post.dart';
+import '../models/post_comment.dart';
+import '../widgets/comment_sheet.dart';
 import '../widgets/activity_route_map.dart';
 import 'route_map.dart';
 
@@ -29,6 +31,11 @@ class _FeedCardState extends State<FeedCard> {
       p.liked = !p.liked;
       p.kudos += p.liked ? 1 : -1;
     });
+  }
+
+  Future<void> _bukaKomentar() async {
+    await showCommentSheet(context, p);
+    if (mounted) setState(() {});
   }
 
   void _soon(String fitur) {
@@ -310,6 +317,7 @@ class _FeedCardState extends State<FeedCard> {
   }
 
   Widget _kudosRow() {
+    final jumlahKomentar = postComments[p.commentKey]?.length ?? 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Row(
@@ -335,10 +343,21 @@ class _FeedCardState extends State<FeedCard> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            p.kudos == 0 ? 'Jadi yang pertama memberi kudos' : '${p.kudos} memberikan kudos',
-            style: TextStyle(color: Colors.grey.shade300, fontSize: 13.5),
+          Expanded(
+            child: Text(
+              p.kudos == 0 ? 'Jadi yang pertama memberi kudos' : '${p.kudos} memberikan kudos',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.grey.shade300, fontSize: 13.5),
+            ),
           ),
+          if (jumlahKomentar > 0)
+            GestureDetector(
+              onTap: _bukaKomentar,
+              child: Text(
+                '$jumlahKomentar komentar',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 13.5),
+              ),
+            ),
         ],
       ),
     );
@@ -360,7 +379,7 @@ class _FeedCardState extends State<FeedCard> {
           ),
           Expanded(
             child: IconButton(
-              onPressed: () => _soon('Komentar'),
+              onPressed: _bukaKomentar,
               icon: Icon(Icons.chat_bubble_outline, color: Colors.grey.shade300),
             ),
           ),
