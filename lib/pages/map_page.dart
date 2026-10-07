@@ -148,7 +148,27 @@ class _MapPageState extends State<MapPage> {
                 SimpleAttributionWidget(
                   source: const Text('© OpenStreetMap contributors'),
                 ),
-                if (_visiblePoints.length > 1)
+                if (_isRecording && (_selectedRoute?.points.length ?? 0) > 1)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: _selectedRoute!.points,
+                        strokeWidth: 5,
+                        color: Colors.blue,
+                      ),
+                    ],
+                  ),
+                if (_isRecording && _recordedPoints.length > 1)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: _recordedPoints,
+                        strokeWidth: 5,
+                        color: Colors.deepOrange,
+                      ),
+                    ],
+                  )
+                else if (!_isRecording && _visiblePoints.length > 1)
                   PolylineLayer(
                     polylines: [
                       Polyline(
@@ -281,6 +301,21 @@ class _MapPageState extends State<MapPage> {
           ),
         ],
       ),
+      if ((_selectedRoute?.points.length ?? 0) > 1)
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Row(
+            children: [
+              Icon(Icons.circle, size: 10, color: Colors.blue),
+              SizedBox(width: 5),
+              Text('Rute tersimpan'),
+              SizedBox(width: 12),
+              Icon(Icons.circle, size: 10, color: Colors.deepOrange),
+              SizedBox(width: 5),
+              Text('Jejak rekaman'),
+            ],
+          ),
+        ),
       Row(
         children: [
           Expanded(
@@ -372,7 +407,18 @@ class _MapPageState extends State<MapPage> {
       _recordingStartedAt = DateTime.now();
       _isRecording = true;
     });
-    _mapController.move(start, 16);
+    final routePoints = _selectedRoute?.points;
+    if (routePoints != null && routePoints.length > 1) {
+      _mapController.fitCamera(
+        CameraFit.coordinates(
+          coordinates: [...routePoints, start],
+          padding: const EdgeInsets.fromLTRB(32, 112, 32, 200),
+          maxZoom: 16,
+        ),
+      );
+    } else {
+      _mapController.move(start, 16);
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final startedAt = _recordingStartedAt;
       if (!mounted || startedAt == null) return;
