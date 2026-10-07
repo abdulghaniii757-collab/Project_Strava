@@ -27,6 +27,7 @@ class _MapPageState extends State<MapPage> {
 
   LatLng _mapCenter = const LatLng(-6.2, 106.816666);
   Position? _currentPosition;
+  List<SavedRoute> _savedRoutes = [];
   SavedRoute? _selectedRoute;
   String _routeName = '';
   bool _isCreatingRoute = false;
@@ -61,7 +62,10 @@ class _MapPageState extends State<MapPage> {
   Future<void> _loadRoutes() async {
     final routes = await LocalStorage.loadRoutes();
     if (!mounted) return;
-    setState(() => _selectedRoute = routes.isEmpty ? null : routes.first);
+    setState(() {
+      _savedRoutes = routes;
+      _selectedRoute = routes.isEmpty ? null : routes.first;
+    });
   }
 
   Future<bool> _requestLocationPermission() async {
@@ -100,6 +104,17 @@ class _MapPageState extends State<MapPage> {
       return;
     }
     _mapController.move(LatLng(position.latitude, position.longitude), 16);
+  }
+
+  void _selectRoute(SavedRoute route) {
+    setState(() => _selectedRoute = route);
+    _mapController.fitCamera(
+      CameraFit.coordinates(
+        coordinates: route.points,
+        padding: const EdgeInsets.fromLTRB(32, 112, 32, 200),
+        maxZoom: 16,
+      ),
+    );
   }
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
@@ -236,6 +251,30 @@ class _MapPageState extends State<MapPage> {
   Widget _mapControls() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      if (_savedRoutes.isNotEmpty) ...[
+        DropdownButtonFormField<SavedRoute>(
+          value: _selectedRoute,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Pilih rute',
+            filled: true,
+          ),
+          items: [
+            for (final route in _savedRoutes)
+              DropdownMenuItem(
+                value: route,
+                child: Text(
+                  '${route.name} · ${_routeDistanceKm(route.points).toStringAsFixed(2)} km',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (route) {
+            if (route != null) _selectRoute(route);
+          },
+        ),
+        const SizedBox(height: 12),
+      ],
       Row(
         children: [
           Expanded(
@@ -375,9 +414,11 @@ class _MapPageState extends State<MapPage> {
       name: _routeName,
       points: List<LatLng>.unmodifiable(_draftPoints),
     );
-    await LocalStorage.saveRoutes([route]);
+    final routes = [..._savedRoutes, route];
+    await LocalStorage.saveRoutes(routes);
     if (!mounted) return;
     setState(() {
+      _savedRoutes = routes;
       _selectedRoute = route;
       _isCreatingRoute = false;
       _draftPoints.clear();

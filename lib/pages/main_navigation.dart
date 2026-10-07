@@ -18,8 +18,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  int _tick =
-      0;
+  int _tick = 0;
 
   Future<void> _openAddActivity() async {
     await Navigator.push(
@@ -41,10 +40,8 @@ class _MainNavigationState extends State<MainNavigation> {
 
     final pages = [
       HomePage(onAddActivity: _openAddActivity),
-      MapPage(
-        onActivityRecorded: _onActivityChanged,
-      ),
-      const StatsPage(),
+      MapPage(onActivityRecorded: _onActivityChanged),
+      StatsPage(isActive: _currentIndex == 2, refreshTick: _tick),
       const GroupPage(),
       ProfilePage(refreshTick: _tick),
     ];

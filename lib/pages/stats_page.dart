@@ -73,7 +73,7 @@ class _StatsPageState extends State<StatsPage> {
 
   String _selectedFilter = 'Semua';
   String _query = '';
-  SavedRoute? _savedRoute;
+  List<SavedRoute> _savedRoutes = [];
 
   @override
   void initState() {
@@ -99,7 +99,7 @@ class _StatsPageState extends State<StatsPage> {
   Future<void> _loadSavedRoute() async {
     final routes = await LocalStorage.loadRoutes();
     if (!mounted) return;
-    setState(() => _savedRoute = routes.isEmpty ? null : routes.first);
+    setState(() => _savedRoutes = routes);
   }
 
   bool get _isFiltering => _query.isNotEmpty || _selectedFilter != 'Semua';
@@ -122,12 +122,14 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   /// Rute buatan belum punya jenis olahraga, jadi cuma tampil di filter Semua.
-  SavedRoute? get _visibleSavedRoute {
-    final route = _savedRoute;
-    if (route == null || route.points.length < 2) return null;
-    if (_selectedFilter != 'Semua') return null;
-    return _matchesQuery(route.name) ? route : null;
-  }
+  List<SavedRoute> get _visibleSavedRoutes => _selectedFilter != 'Semua'
+      ? []
+      : _savedRoutes
+            .where(
+              (route) =>
+                  route.points.length > 1 && _matchesQuery(route.name),
+            )
+            .toList();
 
   List<_PopularRoute> get _visiblePopular => _popularRoutes
       .where((r) => _matchesType(r.type) && _matchesQuery(r.title))
@@ -201,7 +203,7 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final saved = _visibleSavedRoute;
+    final savedRoutes = _visibleSavedRoutes;
     final mine = _myActivities;
     final popular = _visiblePopular;
 
@@ -231,19 +233,21 @@ class _StatsPageState extends State<StatsPage> {
                   title: 'Rute Saya',
                   caption: 'Rute buatan dan hasil rekaman GPS dari tab Peta',
                 ),
-                if (saved == null && mine.isEmpty)
+                if (savedRoutes.isEmpty && mine.isEmpty)
                   _EmptyNote(
                     text: _isFiltering ? 'Tidak ada rute yang cocok.' : 'Belum ada rute. Buat rute atau rekam aktivitas lewat tab Peta, nanti muncul di sini.',
                   ),
-                if (saved != null)
+                for (var i = 0; i < savedRoutes.length; i++)
                   _RouteCard(
-                    key: ValueKey('saved-${saved.name}'),
-                    title: saved.name,
-                    subtitle: 'Rute buatan • ${saved.points.length} titik',
-                    distance: '${_routeKm(saved.points).toStringAsFixed(2)} km',
+                    key: ValueKey('saved-$i-${savedRoutes[i].name}'),
+                    title: savedRoutes[i].name,
+                    subtitle:
+                        'Rute buatan • ${savedRoutes[i].points.length} titik',
+                    distance:
+                        '${_routeKm(savedRoutes[i].points).toStringAsFixed(2)} km',
                     icon: Icons.alt_route,
                     preview: ActivityRouteMap(
-                      points: saved.points,
+                      points: savedRoutes[i].points,
                       height: 150,
                     ),
                   ),
