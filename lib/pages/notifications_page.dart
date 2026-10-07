@@ -41,6 +41,8 @@ final List<NotificationItem> _dummyNotifikasi = [
   ),
 ];
 
+void addNotification(NotificationItem item) => _dummyNotifikasi.insert(0, item);
+
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
 

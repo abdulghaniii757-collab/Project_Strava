@@ -14,6 +14,8 @@ class LocalStorage {
   static const _kGear = 'gear_list';
   static const _kFollowing = 'followed_athletes';
   static const _kRoutes = 'saved_routes';
+  static const _kChallengeJoined = 'challenge_joined_months';
+  static const _kChallengeDone = 'challenge_completed_months';
 
   static Future<void> saveRoutes(List<SavedRoute> routes) async {
     final prefs = await SharedPreferences.getInstance();
@@ -95,6 +97,24 @@ class LocalStorage {
     return (prefs.getStringList(_kFollowing) ?? []).toSet();
   }
 
+  static Future<void> saveChallenges({
+    required Set<String> joined,
+    required Set<String> completed,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kChallengeJoined, joined.toList());
+    await prefs.setStringList(_kChallengeDone, completed.toList());
+  }
+
+  static Future<({Set<String> joined, Set<String> completed})>
+      loadChallenges() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      joined: (prefs.getStringList(_kChallengeJoined) ?? []).toSet(),
+      completed: (prefs.getStringList(_kChallengeDone) ?? []).toSet(),
+    );
+  }
+
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kActivities);
@@ -103,5 +123,7 @@ class LocalStorage {
     await prefs.remove(_kGear);
     await prefs.remove(_kFollowing);
     await prefs.remove(_kRoutes);
+    await prefs.remove(_kChallengeJoined);
+    await prefs.remove(_kChallengeDone);
   }
 }

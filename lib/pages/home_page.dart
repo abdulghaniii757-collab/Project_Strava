@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/activity.dart';
+import '../models/challenge.dart';
 import '../models/feed_post.dart';
 import '../models/user_profile.dart';
+import '../services/challenge_service.dart';
 import '../services/local_storage.dart';
 import '../widgets/trekora_logo.dart';
 import 'feed_card.dart';
@@ -33,9 +35,7 @@ class _HomePageState extends State<HomePage> {
     {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
     {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},
   ];
-  bool _ikutTantangan = false;
 
-  // ---- data ringkasan minggu ini ----
   List<Activity> get _aktivitasMingguIni {
     final now = DateTime.now();
     return dummyActivities
@@ -55,7 +55,6 @@ class _HomePageState extends State<HomePage> {
     final mine = [...dummyActivities]..sort((a, b) => b.date.compareTo(a.date));
     final posts = [...mine.map(FeedPost.fromActivity), ...otherPosts];
 
-    // tantangan disisipin setelah 2 postingan pertama
     final sisipIndex = posts.length < 2 ? posts.length : 2;
 
     return Scaffold(
@@ -107,7 +106,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------- bagian-bagian ----------
 
   Widget _topBar() {
     return Padding(
@@ -318,7 +316,6 @@ class _HomePageState extends State<HomePage> {
               context,
               MaterialPageRoute(builder: (context) => SuggestedAthletesPage(awal: _saran)),
             );
-            // Refresh tombol Ikuti, siapa tau ada yang diikuti di halaman tadi.
             if (mounted) setState(() {});
           },
         ),
@@ -435,7 +432,99 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _toggleTantangan(bool sudahIkut) async {
+    if (sudahIkut) {
+      final keluar = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Keluar dari tantangan?'),
+          content: const Text(
+            'Progres kamu tetap dihitung kalau nanti gabung lagi bulan ini.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Keluar'),
+            ),
+          ],
+        ),
+      );
+      if (keluar != true) return;
+    }
+
+    await ChallengeService.setJoined(!sudahIkut);
+    if (!mounted) return;
+    setState(() {});
+    // Siapa tau jaraknya bulan ini udah lewat 50 km waktu baru gabung.
+    if (!sudahIkut) await ChallengeService.checkCompletion(context);
+    if (mounted) setState(() {});
+  }
+
+  Widget _progresTantangan(double km, bool selesai) {
+    final progress = (km / challengeTargetKm).clamp(0.0, 1.0).toDouble();
+    final sisaHari = challengeDaysLeft();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '${km.toStringAsFixed(1)} / ${challengeTargetKm.toStringAsFixed(0)} km',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                selesai
+                    ? 'Tercapai!'
+                    : sisaHari == 0
+                        ? 'Hari terakhir'
+                        : '$sisaHari hari lagi',
+                style: TextStyle(
+                  color: selesai ? Colors.green.shade400 : Colors.grey.shade400,
+                  fontSize: 12.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: Colors.grey.shade800,
+              color: selesai ? Colors.green.shade400 : Colors.amber,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            selesai
+                ? 'Lencana sudah masuk ke profilmu.'
+                : 'Tinggal ${(challengeTargetKm - km).toStringAsFixed(1)} km lagi buat dapat lencana.',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _tantangan() {
+    final key = challengeMonthKey(DateTime.now());
+    final ikut = joinedChallengeMonths.contains(key);
+    final selesai = completedChallengeMonths.contains(key);
+    final km = challengeKmFor(key);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -517,24 +606,30 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
+              if (ikut || selesai) _progresTantangan(km, selesai),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 46,
                 child: ElevatedButton(
-                  onPressed: () =>
-                      setState(() => _ikutTantangan = !_ikutTantangan),
+                  onPressed: selesai ? null : () => _toggleTantangan(ikut),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _ikutTantangan
+                    backgroundColor: ikut
                         ? Colors.grey.shade800
                         : Colors.deepOrange,
+                    disabledBackgroundColor: Colors.green.shade700,
+                    disabledForegroundColor: Colors.white,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),
                   child: Text(
-                    _ikutTantangan ? 'Sudah Bergabung' : 'Ikuti Tantangan',
+                    selesai
+                        ? 'Selesai · Lencana Didapat'
+                        : ikut
+                            ? 'Sudah Bergabung'
+                            : 'Ikuti Tantangan',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

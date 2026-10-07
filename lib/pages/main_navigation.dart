@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/challenge_service.dart';
+
 import 'home_page.dart';
 import 'stats_page.dart';
 import 'profile_page.dart';
@@ -17,26 +19,30 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
   int _tick =
-      0; // dinaikin tiap ada aktivitas baru biar semua halaman ikut refresh
+      0;
 
   Future<void> _openAddActivity() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddActivityPage()),
     );
-    if (mounted) setState(() => _tick++);
+    _onActivityChanged();
+  }
+
+  void _onActivityChanged() {
+    if (!mounted) return;
+    setState(() => _tick++);
+    ChallengeService.checkCompletion(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isMap = _currentIndex == 1;
 
-    // Dibikin ulang tiap build (bukan late final) biar halaman ikut
-    // nampilin data terbaru setelah aktivitas ditambah atau pindah tab.
     final pages = [
       HomePage(onAddActivity: _openAddActivity),
       MapPage(
-        onActivityRecorded: () => setState(() => _tick++),
+        onActivityRecorded: _onActivityChanged,
       ),
       const StatsPage(),
       const GroupPage(),

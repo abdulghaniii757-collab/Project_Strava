@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/activity.dart';
+import '../models/challenge.dart';
 import '../models/gear.dart';
 import '../models/user_profile.dart';
 import '../services/local_storage.dart';
@@ -23,34 +24,20 @@ const _card = Color(0xFF1E1E1E);
 const _chipGrey = Color(0xFF2C2C2C);
 const _muted = Color(0xFFA0A0A0);
 
-/// Target jarak mingguan (km), disimpan di memori selama app berjalan.
 double _weeklyGoalKm = 10;
 
-// ---------- statistik ----------
-
-/// Jumlah pengikut. Selalu 0 karena app belum punya server, jadi belum ada
-/// akun lain yang bisa ngikutin user. "Mengikuti" dihitung dari
-/// followedAthletes (atlet yang diikuti lewat tombol Ikuti di Home).
 const _followers = 0;
 
-/// Angka contoh buat kartu "Statistik Saya". Masih statis, belum dihitung
-/// dari aktivitas yang dicatat.
 const _sampleActivitiesPerWeek = 8;
 const _sampleAvgTimePerWeek = '2h 15m';
 const _sampleAvgDistancePerWeek = 24.8;
 const _sampleTotalElevation = 45.0;
 
-// ---------- perlengkapan (gear) ----------
-
-/// Daftar perlengkapan. Dimuat dari penyimpanan permanen saat tab Profil
-/// pertama kali dibuka (lihat _ProfilePageState.initState).
 final List<Gear> _gearList = [];
 
 double _gearTotalKm(Gear gear) => dummyActivities
     .where((a) => a.type == gear.type)
     .fold<double>(0, (sum, a) => sum + a.distanceKm);
-
-// ---------- lencana pencapaian ----------
 
 class _Badge {
   const _Badge({
@@ -71,6 +58,7 @@ List<_Badge> _computeBadges() {
   final count = dummyActivities.length;
   final streak = _weekStreak();
   final sportsUsed = dummyActivities.map((a) => a.type).toSet().length;
+  final thisMonth = challengeMonthKey(DateTime.now());
 
   return [
     _Badge(
@@ -109,6 +97,24 @@ List<_Badge> _computeBadges() {
       icon: Icons.sports,
       unlocked: sportsUsed >= 2,
     ),
+
+    for (final key in completedChallengeMonths.toList()..sort())
+      _Badge(
+        title: '50 KM ${challengeMonthLabel(key)}',
+        description: 'Selesaikan Tantangan 50 KM ${challengeMonthLabel(key)}',
+        icon: Icons.emoji_events,
+        unlocked: true,
+      ),
+
+    if (joinedChallengeMonths.contains(thisMonth) &&
+        !completedChallengeMonths.contains(thisMonth))
+      _Badge(
+        title: '50 KM ${challengeMonthLabel(thisMonth)}',
+        description: 'Selesaikan Tantangan 50 KM ${challengeMonthLabel(thisMonth)} '
+            '(${challengeKmFor(thisMonth).toStringAsFixed(1)}/50 km)',
+        icon: Icons.emoji_events,
+        unlocked: false,
+      ),
   ];
 }
 
@@ -137,9 +143,7 @@ IconData _iconFor(String type) {
   return Icons.directions_run;
 }
 
-// ---------- helper perhitungan ----------
 
-/// Senin dari minggu tempat [d] berada (jam di-reset ke 00:00).
 DateTime _startOfWeek(DateTime d) =>
     DateTime(d.year, d.month, d.day - (d.weekday - 1));
 
@@ -184,7 +188,6 @@ String _fmtClock(int totalSeconds) {
   return h > 0 ? '$h:$mm:$ss' : '$m:$ss';
 }
 
-/// Total jarak per minggu untuk 12 minggu terakhir (index 11 = minggu ini).
 List<double> _weeklyDistances(String type) {
   final thisWeek = _startOfWeek(DateTime.now());
   final result = List<double>.filled(12, 0);
@@ -199,7 +202,6 @@ List<double> _weeklyDistances(String type) {
   return result;
 }
 
-/// Label bulan di bawah grafik: muncul di minggu yang memuat tanggal 1.
 Map<int, String> _monthLabels() {
   final thisWeek = _startOfWeek(DateTime.now());
   final labels = <int, String>{};
@@ -215,7 +217,6 @@ Map<int, String> _monthLabels() {
   return labels;
 }
 
-/// Jumlah minggu berturut-turut yang punya minimal 1 aktivitas.
 int _weekStreak() {
   final activeWeeks = <DateTime>{
     for (final a in dummyActivities) _startOfWeek(a.date),
@@ -231,8 +232,6 @@ int _weekStreak() {
   }
   return streak;
 }
-
-// ---------- periode (Minggu / Bulan / Tahun) ----------
 
 enum _Period { week, month, year }
 
@@ -258,7 +257,6 @@ String _periodShort(_Period p) {
   }
 }
 
-/// Apakah tanggal [d] masuk ke periode berjalan (minggu/bulan/tahun ini).
 bool _inPeriod(DateTime d, _Period p) {
   final now = DateTime.now();
   switch (p) {
@@ -271,7 +269,6 @@ bool _inPeriod(DateTime d, _Period p) {
   }
 }
 
-/// Total jarak per bulan untuk 12 bulan terakhir (index 11 = bulan ini).
 List<double> _monthlyDistances(String type) {
   final now = DateTime.now();
   final result = List<double>.filled(12, 0);
@@ -285,7 +282,6 @@ List<double> _monthlyDistances(String type) {
   return result;
 }
 
-/// Total jarak per tahun untuk 5 tahun terakhir (index 4 = tahun ini).
 List<double> _yearlyDistances(String type) {
   final now = DateTime.now();
   final result = List<double>.filled(5, 0);
@@ -347,8 +343,6 @@ String _sortLabel(_ActivitySort s) =>
 
 enum _AvatarAction { camera, gallery, file, remove }
 
-/// Kecilin gambar (sisi terpanjang maks 512 px) biar base64-nya ga kegedean
-/// waktu disimpen di shared_preferences. Error kalau bytes bukan gambar.
 Future<Uint8List> _shrinkImage(Uint8List bytes) async {
   const maxSide = 512;
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
@@ -367,9 +361,6 @@ Future<Uint8List> _shrinkImage(Uint8List bytes) async {
   return data!.buffer.asUint8List();
 }
 
-// ---------- dialog yang dipakai bareng (Profil & Pengaturan) ----------
-
-/// Buka dialog edit profil lalu simpan. Balikin true kalau ada perubahan.
 Future<bool> _promptEditProfile(BuildContext context) async {
   final result = await showDialog<_ProfileForm>(
     context: context,
@@ -382,8 +373,6 @@ Future<bool> _promptEditProfile(BuildContext context) async {
   await LocalStorage.saveProfile(currentUser);
   return true;
 }
-
-/// Buka dialog target mingguan lalu simpan. Balikin true kalau ada perubahan.
 Future<bool> _promptEditGoal(BuildContext context) async {
   final value = await showDialog<double>(
     context: context,
@@ -395,13 +384,9 @@ Future<bool> _promptEditGoal(BuildContext context) async {
   return true;
 }
 
-// ---------- halaman ----------
-
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.refreshTick = 0});
 
-  /// Dinaikin sama MainNavigation tiap ada aktivitas baru, biar halaman ini
-  /// ikut digambar ulang walaupun aktivitasnya ditambah dari tab lain.
   final int refreshTick;
 
   @override
@@ -409,7 +394,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  int _tab = 0; // 0 = Kemajuan, 1 = Aktivitas, 2 = Lainnya
+  int _tab = 0; 
   String _sport = 'Lari';
   _Period _period = _Period.week;
   String _activityFilter = 'Semua';
@@ -472,13 +457,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  /// Buka file explorer (aplikasi Files) buat milih foto profil.
   Future<void> _pickAvatarFromFile() async {
     try {
       final file = await FilePicker.pickFile(
         dialogTitle: 'Pilih foto profil',
-        // Pakai custom + ekstensi (bukan FileType.image) biar di Android yang
-        // kebuka file explorer, bukan pemilih foto/galeri.
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
       );
@@ -608,8 +590,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- header -----
-
   Widget _buildHeader(int activityCount) {
     final name = currentUser.name.trim();
     final initial = name.isEmpty ? '?' : name[0].toUpperCase();
@@ -637,8 +617,6 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 20),
           Row(
             children: [
-              // Ketuk foto: langsung buka file explorer.
-              // Ketuk ikon kamera kecil / tahan lama: menu kamera, galeri, hapus.
               GestureDetector(
                 onTap: _pickAvatarFromFile,
                 onLongPress: _showAvatarMenu,
@@ -764,8 +742,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- tab bar -----
-
   Widget _buildTabBar() {
     return Container(
       margin: const EdgeInsets.only(top: 24),
@@ -807,8 +783,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-  // ----- tab Kemajuan -----
 
   Widget _buildProgress() {
     final series = _seriesFor(_period, _sport);
@@ -945,8 +919,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- kartu Sosial & Statistik Saya -----
-
   Widget _buildMyStatsCard() {
     return Container(
       width: double.infinity,
@@ -1028,8 +1000,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- kartu Target Mingguan -----
-
   Future<void> _editGoal() async {
     if (await _promptEditGoal(context) && mounted) setState(() {});
   }
@@ -1075,7 +1045,7 @@ class _ProfilePageState extends State<ProfilePage> {
         .fold<double>(0, (sum, a) => sum + a.distanceKm);
     final progress = math.min(1.0, doneKm / _weeklyGoalKm);
     final reached = doneKm >= _weeklyGoalKm;
-    final daysLeft = 8 - now.weekday; // termasuk hari ini
+    final daysLeft = 8 - now.weekday; 
     final remaining = _weeklyGoalKm - doneKm;
     final perDay = remaining / daysLeft;
 
@@ -1268,8 +1238,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- kartu Rekor Pribadi -----
-
   Future<void> _openDetail(Activity a) async {
     await Navigator.push(
       context,
@@ -1360,8 +1328,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- kartu Lencana Pencapaian -----
-
   Widget _buildBadgesCard() {
     final badges = _computeBadges();
     final unlockedCount = badges.where((b) => b.unlocked).length;
@@ -1447,8 +1413,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-  // ----- kartu Perlengkapan (gear) -----
 
   Widget _buildGearCard() {
     return Material(
@@ -1538,8 +1502,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-  // ----- tab Aktivitas -----
 
   Widget _buildActivityList(List<Activity> activities) {
     if (activities.isEmpty) {
@@ -1658,8 +1620,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ----- tab Lainnya -----
-
   Widget _buildMore() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -1694,8 +1654,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
-
-// ---------- widget kecil ----------
 
 class _CircleIconButton extends StatelessWidget {
   const _CircleIconButton({required this.icon, required this.onTap});
@@ -2202,8 +2160,6 @@ class _AddGearDialogState extends State<_AddGearDialog> {
   }
 }
 
-// ---------- pencarian aktivitas ----------
-
 class _ActivitySearchDelegate extends SearchDelegate<Activity?> {
   _ActivitySearchDelegate()
       : super(
@@ -2287,8 +2243,6 @@ class _ActivitySearchDelegate extends SearchDelegate<Activity?> {
     );
   }
 }
-
-// ---------- halaman Pengaturan ----------
 
 class _SettingsPage extends StatefulWidget {
   const _SettingsPage();
@@ -2386,6 +2340,8 @@ class _SettingsPageState extends State<_SettingsPage> {
     dummyActivities.clear();
     _gearList.clear();
     followedAthletes.clear();
+    joinedChallengeMonths.clear();
+    completedChallengeMonths.clear();
     _weeklyGoalKm = 10;
     currentUser
       ..name = 'Pengguna'
@@ -2543,8 +2499,6 @@ class _SettingsPageState extends State<_SettingsPage> {
   }
 }
 
-// ---------- grafik ----------
-
 class _WeeklyChartPainter extends CustomPainter {
   _WeeklyChartPainter({required this.values, required this.monthLabels});
 
@@ -2579,7 +2533,6 @@ class _WeeklyChartPainter extends CustomPainter {
     final maxValue = values.isEmpty ? 0.0 : values.reduce(math.max);
     final axisMax = maxValue <= 6 ? 6.0 : (maxValue / 6).ceil() * 6.0;
 
-    // garis bantu + label sumbu Y
     final gridPaint = Paint()
       ..color = const Color(0x33FFFFFF)
       ..strokeWidth = 1;
@@ -2603,7 +2556,6 @@ class _WeeklyChartPainter extends CustomPainter {
         ),
     ];
 
-    // garis penghubung
     final linePaint = Paint()
       ..color = _orange
       ..strokeWidth = 3
@@ -2615,7 +2567,6 @@ class _WeeklyChartPainter extends CustomPainter {
     }
     canvas.drawPath(path, linePaint);
 
-    // garis vertikal di periode terakhir (sekarang)
     final last = points.last;
     canvas.drawLine(
       Offset(last.dx, chartTop),
@@ -2625,7 +2576,6 @@ class _WeeklyChartPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
 
-    // titik tiap periode
     final dotFill = Paint()..color = _card;
     final dotStroke = Paint()
       ..color = _orange
@@ -2638,7 +2588,6 @@ class _WeeklyChartPainter extends CustomPainter {
     canvas.drawCircle(last, 10, Paint()..color = const Color(0x59FC4C02));
     canvas.drawCircle(last, 6.5, Paint()..color = _orange);
 
-    // label sumbu X
     monthLabels.forEach((index, label) {
       if (index < n) {
         _drawText(canvas, label, Offset(points[index].dx, chartBottom + 22), centerX: true);

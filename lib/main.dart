@@ -4,13 +4,13 @@ import 'models/activity.dart';
 import 'models/user_profile.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation.dart';
-import 'pages/profile_page.dart'; // Import halaman profile
+import 'pages/profile_page.dart'; 
+import 'services/challenge_service.dart';
 import 'services/local_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Muat data yang udah kesimpen sebelumnya (kalau ada) sebelum app dibuka.
   final savedActivities = await LocalStorage.loadActivities();
   dummyActivities.addAll(savedActivities);
 
@@ -25,6 +25,7 @@ void main() async {
   }
 
   followedAthletes.addAll(await LocalStorage.loadFollowing());
+  await ChallengeService.load();
 
   runApp(const TrekoraApp());
 }
