@@ -47,6 +47,9 @@ dependencies:
   # Milih foto profil langsung dari file explorer.
   file_picker: ^13.1.0
 
+  # Hash kata sandi akun yang didaftarkan (SHA-256).
+  crypto: ^3.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
