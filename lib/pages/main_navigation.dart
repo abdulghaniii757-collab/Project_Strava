@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/challenge_service.dart';
+import '../services/route_store.dart';
 
 import 'home_page.dart';
 import 'stats_page.dart';
@@ -41,7 +42,16 @@ class _MainNavigationState extends State<MainNavigation> {
     final pages = [
       HomePage(onAddActivity: _openAddActivity),
       MapPage(onActivityRecorded: _onActivityChanged),
-      StatsPage(isActive: _currentIndex == 2, refreshTick: _tick),
+      StatsPage(
+        onOpenRoute: (route) {
+          RouteStore.instance.openInMap(route);
+          setState(() => _currentIndex = 1);
+        },
+        onCreateRoute: () {
+          setState(() => _currentIndex = 1);
+          RouteStore.instance.requestCreate();
+        },
+      ),
       const GroupPage(),
       ProfilePage(refreshTick: _tick),
     ];

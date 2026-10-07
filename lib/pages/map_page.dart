@@ -8,6 +8,8 @@ import 'package:latlong2/latlong.dart';
 import '../models/activity.dart';
 import '../models/saved_route.dart';
 import '../services/local_storage.dart';
+import '../services/route_store.dart';
+import '../widgets/route_name_dialog.dart';
 import '../widgets/save_activity_dialog.dart';
 
 class MapPage extends StatefulWidget {
@@ -27,8 +29,8 @@ class _MapPageState extends State<MapPage> {
 
   LatLng _mapCenter = const LatLng(-6.2, 106.816666);
   Position? _currentPosition;
-  List<SavedRoute> _savedRoutes = [];
-  SavedRoute? _selectedRoute;
+  int _seenCreateRequests = 0;
+  int _seenShowRequests = 0;
   String _routeName = '';
   bool _isCreatingRoute = false;
   bool _isRecording = false;
@@ -42,16 +44,25 @@ class _MapPageState extends State<MapPage> {
   @override
   void initState() {
     super.initState();
+    final store = RouteStore.instance;
+    _seenCreateRequests = store.createRequests;
+    _seenShowRequests = store.showRequests;
+    store.addListener(_onRouteStoreChanged);
     _loadRoutes();
     _loadCurrentLocation();
   }
 
   @override
   void dispose() {
+    RouteStore.instance.removeListener(_onRouteStoreChanged);
     _positionSubscription?.cancel();
     _timer?.cancel();
     super.dispose();
   }
+
+  // Daftar dan pilihan rute disimpan di RouteStore, biar tab Rute dan Peta sinkron.
+  List<SavedRoute> get _savedRoutes => RouteStore.instance.routes;
+  SavedRoute? get _selectedRoute => RouteStore.instance.selected;
 
   List<LatLng> get _visiblePoints {
     if (_isRecording) return _recordedPoints;
@@ -60,12 +71,34 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _loadRoutes() async {
-    final routes = await LocalStorage.loadRoutes();
+    await RouteStore.instance.load();
     if (!mounted) return;
-    setState(() {
-      _savedRoutes = routes;
-      _selectedRoute = routes.isEmpty ? null : routes.first;
-    });
+    setState(() {});
+  }
+
+  /// Dipanggil tiap isi RouteStore berubah, termasuk permintaan dari tab Rute
+  /// untuk membuat rute baru atau membuka rute tertentu di peta ini.
+  void _onRouteStoreChanged() {
+    if (!mounted) return;
+    final store = RouteStore.instance;
+    final wantsCreate = store.createRequests != _seenCreateRequests;
+    final wantsShow = store.showRequests != _seenShowRequests;
+    _seenCreateRequests = store.createRequests;
+    _seenShowRequests = store.showRequests;
+
+    setState(() {});
+
+    if (!wantsCreate && !wantsShow) return;
+    if (_isRecording || _isCreatingRoute) {
+      _showMessage('Selesaikan dulu rekaman atau rute yang sedang dibuat.');
+      return;
+    }
+    if (wantsCreate) {
+      _createRoute();
+    } else {
+      final route = store.selected;
+      if (route != null) _fitToRoute(route);
+    }
   }
 
   Future<bool> _requestLocationPermission() async {
@@ -107,14 +140,23 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _selectRoute(SavedRoute route) {
-    setState(() => _selectedRoute = route);
-    _mapController.fitCamera(
-      CameraFit.coordinates(
-        coordinates: route.points,
-        padding: const EdgeInsets.fromLTRB(32, 112, 32, 200),
-        maxZoom: 16,
-      ),
-    );
+    RouteStore.instance.select(route);
+    _fitToRoute(route);
+  }
+
+  void _fitToRoute(SavedRoute route) {
+    if (route.points.length < 2) return;
+    try {
+      _mapController.fitCamera(
+        CameraFit.coordinates(
+          coordinates: route.points,
+          padding: const EdgeInsets.fromLTRB(32, 112, 32, 200),
+          maxZoom: 16,
+        ),
+      );
+    } catch (_) {
+      // Peta belum siap digerakkan; rutenya tetap tergambar di layar.
+    }
   }
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
@@ -245,6 +287,23 @@ class _MapPageState extends State<MapPage> {
             : '${_selectedRoute!.name} · '
                   '${_routeDistanceKm(_selectedRoute!.points).toStringAsFixed(2)} km',
       ),
+      trailing: _selectedRoute == null || _isRecording || _isCreatingRoute
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Ubah nama rute',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: _renameRoute,
+                ),
+                IconButton(
+                  tooltip: 'Hapus rute',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: _deleteRoute,
+                ),
+              ],
+            ),
     ),
   );
 
@@ -414,16 +473,58 @@ class _MapPageState extends State<MapPage> {
       name: _routeName,
       points: List<LatLng>.unmodifiable(_draftPoints),
     );
-    final routes = [..._savedRoutes, route];
-    await LocalStorage.saveRoutes(routes);
+    await RouteStore.instance.add(route);
     if (!mounted) return;
     setState(() {
-      _savedRoutes = routes;
-      _selectedRoute = route;
       _isCreatingRoute = false;
       _draftPoints.clear();
     });
     _showMessage('Rute "${route.name}" disimpan.');
+  }
+
+  Future<void> _renameRoute() async {
+    final route = _selectedRoute;
+    if (route == null) return;
+
+    final name = await showRouteNameDialog(context, initialName: route.name);
+    if (name == null || !mounted) return;
+    if (name.isEmpty) {
+      _showMessage('Nama rute tidak boleh kosong.');
+      return;
+    }
+    if (name == route.name) return;
+
+    await RouteStore.instance.rename(route, name);
+    if (!mounted) return;
+    _showMessage('Rute diubah menjadi "$name".');
+  }
+
+  Future<void> _deleteRoute() async {
+    final route = _selectedRoute;
+    if (route == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus rute?'),
+        content: Text('Rute "${route.name}" akan dihapus permanen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await RouteStore.instance.remove(route);
+    if (!mounted) return;
+    _showMessage('Rute "${route.name}" dihapus.');
   }
 
   Future<void> _chooseTypeAndStart() async {

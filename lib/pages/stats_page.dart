@@ -3,22 +3,24 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/activity.dart';
 import '../models/saved_route.dart';
-import '../services/local_storage.dart';
+import '../services/route_store.dart';
 import '../widgets/activity_route_map.dart';
+import '../widgets/route_name_dialog.dart';
 import 'activity_detail_page.dart';
 import 'route_map.dart';
 
-/// Tab "Rute": daftar rute milik pengguna (rute buatan dan hasil rekaman GPS
-/// dari tab Peta) ditambah beberapa contoh rute populer.
+/// Tab "Rute": pusat semua rute. Di sini pengguna bisa membuat rute baru,
+/// membuka rute di Peta, mengubah nama atau menghapusnya, dan mencari rute
+/// lewat nama atau jenis olahraga. Petanya sendiri tetap ada di tab Peta.
 class StatsPage extends StatefulWidget {
-  const StatsPage({super.key, this.isActive = false, this.refreshTick = 0});
+  const StatsPage({super.key, this.onOpenRoute, this.onCreateRoute});
 
-  /// True kalau tab Rute lagi dibuka. Tiap tab ini dibuka lagi, rute buatan
-  /// dimuat ulang biar ikut yang barusan disimpan di tab Peta.
-  final bool isActive;
+  /// Dipanggil saat rute buatan diketuk, untuk membukanya di tab Peta.
+  final void Function(SavedRoute route)? onOpenRoute;
 
-  /// Naik setiap kali ada aktivitas baru atau berubah.
-  final int refreshTick;
+  /// Dipanggil saat tombol "Buat rute baru" ditekan, untuk pindah ke tab Peta
+  /// dan mulai membuat rute.
+  final VoidCallback? onCreateRoute;
 
   @override
   State<StatsPage> createState() => _StatsPageState();
@@ -39,6 +41,8 @@ class _PopularRoute {
   final String elevation;
   final int seed;
 }
+
+enum _RouteAction { rename, delete }
 
 // Data contoh. Jenisnya sama dengan jenis aktivitas di seluruh app.
 const _popularRoutes = [
@@ -68,38 +72,35 @@ class _StatsPageState extends State<StatsPage> {
   static const _filters = ['Semua', 'Lari', 'Sepeda', 'Jalan Kaki'];
   static const _card = Color(0xFF1C1C1E);
 
+  final _store = RouteStore.instance;
   final _searchController = TextEditingController();
   final _distance = const Distance();
 
   String _selectedFilter = 'Semua';
   String _query = '';
-  List<SavedRoute> _savedRoutes = [];
 
   @override
   void initState() {
     super.initState();
-    _loadSavedRoute();
-  }
-
-  @override
-  void didUpdateWidget(covariant StatsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final justOpened = widget.isActive && !oldWidget.isActive;
-    if (justOpened || widget.refreshTick != oldWidget.refreshTick) {
-      _loadSavedRoute();
-    }
+    _store.addListener(_onStoreChanged);
+    _store.load();
   }
 
   @override
   void dispose() {
+    _store.removeListener(_onStoreChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSavedRoute() async {
-    final routes = await LocalStorage.loadRoutes();
-    if (!mounted) return;
-    setState(() => _savedRoutes = routes);
+  void _onStoreChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool get _isFiltering => _query.isNotEmpty || _selectedFilter != 'Semua';
@@ -109,6 +110,15 @@ class _StatsPageState extends State<StatsPage> {
 
   bool _matchesType(String type) =>
       _selectedFilter == 'Semua' || type == _selectedFilter;
+
+  /// Rute buatan belum punya jenis olahraga, jadi cuma tampil di filter Semua.
+  /// Yang terbaru ditaruh di atas.
+  List<SavedRoute> get _savedRoutes {
+    if (_selectedFilter != 'Semua') return const [];
+    return _store.routes.reversed
+        .where((r) => r.points.length >= 2 && _matchesQuery(r.name))
+        .toList();
+  }
 
   /// Aktivitas yang direkam lewat Peta (punya jejak GPS), terbaru di atas.
   List<Activity> get _myActivities {
@@ -120,16 +130,6 @@ class _StatsPageState extends State<StatsPage> {
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
-
-  /// Rute buatan belum punya jenis olahraga, jadi cuma tampil di filter Semua.
-  List<SavedRoute> get _visibleSavedRoutes => _selectedFilter != 'Semua'
-      ? []
-      : _savedRoutes
-            .where(
-              (route) =>
-                  route.points.length > 1 && _matchesQuery(route.name),
-            )
-            .toList();
 
   List<_PopularRoute> get _visiblePopular => _popularRoutes
       .where((r) => _matchesType(r.type) && _matchesQuery(r.title))
@@ -151,6 +151,45 @@ class _StatsPageState extends State<StatsPage> {
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _renameRoute(SavedRoute route) async {
+    final name = await showRouteNameDialog(context, initialName: route.name);
+    if (name == null || !mounted) return;
+    if (name.isEmpty) {
+      _showMessage('Nama rute tidak boleh kosong.');
+      return;
+    }
+    if (name == route.name) return;
+
+    await _store.rename(route, name);
+    if (!mounted) return;
+    _showMessage('Rute diubah menjadi "$name".');
+  }
+
+  Future<void> _confirmDelete(SavedRoute route) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus rute?'),
+        content: Text('Rute "${route.name}" akan dihapus permanen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _store.remove(route);
+    if (!mounted) return;
+    _showMessage('Rute "${route.name}" dihapus.');
   }
 
   void _showPopularDetail(_PopularRoute route) {
@@ -203,9 +242,10 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final savedRoutes = _visibleSavedRoutes;
+    final saved = _savedRoutes;
     final mine = _myActivities;
     final popular = _visiblePopular;
+    final openRoute = widget.onOpenRoute;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -231,24 +271,60 @@ class _StatsPageState extends State<StatsPage> {
               children: [
                 const _SectionHeader(
                   title: 'Rute Saya',
-                  caption: 'Rute buatan dan hasil rekaman GPS dari tab Peta',
+                  caption: 'Rute buatan dan hasil rekaman GPS. Ketuk rute buatan untuk membukanya di Peta.',
                 ),
-                if (savedRoutes.isEmpty && mine.isEmpty)
+                if (widget.onCreateRoute != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: FilledButton.icon(
+                      onPressed: widget.onCreateRoute,
+                      icon: const Icon(Icons.edit_road),
+                      label: const Text('Buat rute baru'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.deepOrange,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(46),
+                      ),
+                    ),
+                  ),
+                if (saved.isEmpty && mine.isEmpty)
                   _EmptyNote(
                     text: _isFiltering ? 'Tidak ada rute yang cocok.' : 'Belum ada rute. Buat rute atau rekam aktivitas lewat tab Peta, nanti muncul di sini.',
                   ),
-                for (var i = 0; i < savedRoutes.length; i++)
+                for (var i = 0; i < saved.length; i++)
                   _RouteCard(
-                    key: ValueKey('saved-$i-${savedRoutes[i].name}'),
-                    title: savedRoutes[i].name,
-                    subtitle:
-                        'Rute buatan • ${savedRoutes[i].points.length} titik',
+                    key: ValueKey('saved-$i-${saved[i].name}'),
+                    title: saved[i].name,
+                    subtitle: 'Rute buatan • ${saved[i].points.length} titik',
                     distance:
-                        '${_routeKm(savedRoutes[i].points).toStringAsFixed(2)} km',
+                        '${_routeKm(saved[i].points).toStringAsFixed(2)} km',
                     icon: Icons.alt_route,
                     preview: ActivityRouteMap(
-                      points: savedRoutes[i].points,
+                      points: saved[i].points,
                       height: 150,
+                    ),
+                    onTap: openRoute == null ? null : () => openRoute(saved[i]),
+                    trailing: PopupMenuButton<_RouteAction>(
+                      tooltip: 'Opsi rute',
+                      icon: const Icon(Icons.more_vert, color: Colors.grey),
+                      onSelected: (action) {
+                        switch (action) {
+                          case _RouteAction.rename:
+                            _renameRoute(saved[i]);
+                          case _RouteAction.delete:
+                            _confirmDelete(saved[i]);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: _RouteAction.rename,
+                          child: Text('Ubah nama'),
+                        ),
+                        PopupMenuItem(
+                          value: _RouteAction.delete,
+                          child: Text('Hapus'),
+                        ),
+                      ],
                     ),
                   ),
                 for (var i = 0; i < mine.length; i++)
@@ -415,6 +491,7 @@ class _RouteCard extends StatelessWidget {
     required this.icon,
     required this.preview,
     this.onTap,
+    this.trailing,
   });
 
   final String title;
@@ -423,6 +500,7 @@ class _RouteCard extends StatelessWidget {
   final IconData icon;
   final Widget preview;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +517,7 @@ class _RouteCard extends StatelessWidget {
             children: [
               preview,
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
                 child: Row(
                   children: [
                     Icon(icon, color: Colors.deepOrange, size: 22),
@@ -478,6 +556,7 @@ class _RouteCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    trailing ?? const SizedBox(width: 8),
                   ],
                 ),
               ),
