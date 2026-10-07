@@ -39,10 +39,7 @@ class UserProfile {
 
 /// Data profil user yang sedang login (sementara masih disimpan di memori).
 final UserProfile currentUser = UserProfile(name: 'Pengguna');
-<<<<<<< HEAD
-=======
 
 /// Nama atlet yang diikuti user. Dipakai bareng sama Home, halaman
 /// "Siapa yang Harus Diikuti", dan Profil (angka "Mengikuti").
 final Set<String> followedAthletes = {};
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c

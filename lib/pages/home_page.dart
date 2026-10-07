@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/activity.dart';
-<<<<<<< HEAD
-import '../models/feed_post.dart';
-=======
 import '../models/challenge.dart';
 import '../models/feed_post.dart';
 import '../models/post_comment.dart';
@@ -11,7 +8,6 @@ import '../models/user_profile.dart';
 import '../services/challenge_service.dart';
 import '../services/local_storage.dart';
 import '../widgets/trekora_logo.dart';
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 import 'feed_card.dart';
 import 'activity_detail_page.dart';
 import 'notifications_page.dart';
@@ -36,22 +32,11 @@ class _HomePageState extends State<HomePage> {
 
   final List<Map<String, String>> _saran = [
     {'nama': 'Rafi Ananda', 'ket': 'Sering lari pagi di sekitar kamu'},
-<<<<<<< HEAD
-    {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Strava'},
-    {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
-    {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},
-  ];
-  final Set<String> _diikuti = {};
-  bool _ikutTantangan = false;
-
-  // ---- data ringkasan minggu ini ----
-=======
     {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Trekora'},
     {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
     {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},
   ];
 
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
   List<Activity> get _aktivitasMingguIni {
     final now = DateTime.now();
     return dummyActivities
@@ -71,10 +56,6 @@ class _HomePageState extends State<HomePage> {
     final mine = [...dummyActivities]..sort((a, b) => b.date.compareTo(a.date));
     final posts = [...mine.map(FeedPost.fromActivity), ...otherPosts];
 
-<<<<<<< HEAD
-    // tantangan disisipin setelah 2 postingan pertama
-=======
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
     final sisipIndex = posts.length < 2 ? posts.length : 2;
 
     return Scaffold(
@@ -109,12 +90,9 @@ class _HomePageState extends State<HomePage> {
                           ? null
                           : () {
                               setState(() => dummyActivities.remove(posts[i].source));
-<<<<<<< HEAD
-=======
                               if (postComments.remove(posts[i].commentKey) != null) {
                                 LocalStorage.saveComments(postComments);
                               }
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
                               _info('Aktivitas dihapus');
                             },
                       onHide: posts[i].source != null
@@ -132,35 +110,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-<<<<<<< HEAD
-  // ---------- bagian-bagian ----------
-=======
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 
   Widget _topBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
       child: Row(
         children: [
-<<<<<<< HEAD
-          Icon(
-            Icons.directions_run,
-            color: Colors.deepOrange.shade400,
-            size: 26,
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'strava',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 25,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-            ),
-          ),
-=======
           const TrekoraWordmark(),
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
           const Spacer(),
           IconButton(
             onPressed: widget.onAddActivity,
@@ -359,12 +315,6 @@ class _HomePageState extends State<HomePage> {
         _judulSeksi(
           'Siapa yang Harus Diikuti',
           aksi: 'Lihat Semua',
-<<<<<<< HEAD
-          onAksi: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SuggestedAthletesPage(awal: _saran)),
-          ),
-=======
           onAksi: () async {
             await Navigator.push(
               context,
@@ -372,7 +322,6 @@ class _HomePageState extends State<HomePage> {
             );
             if (mounted) setState(() {});
           },
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
         ),
         SizedBox(
           height: 218,
@@ -390,11 +339,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _kartuSaran(Map<String, String> user) {
     final nama = user['nama']!;
-<<<<<<< HEAD
-    final sudah = _diikuti.contains(nama);
-=======
     final sudah = followedAthletes.contains(nama);
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 
     return Container(
       width: 215,
@@ -446,20 +391,12 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () {
                     setState(() {
                       if (sudah) {
-<<<<<<< HEAD
-                        _diikuti.remove(nama);
-                      } else {
-                        _diikuti.add(nama);
-                      }
-                    });
-=======
                         followedAthletes.remove(nama);
                       } else {
                         followedAthletes.add(nama);
                       }
                     });
                     LocalStorage.saveFollowing(followedAthletes);
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: sudah
@@ -499,9 +436,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-<<<<<<< HEAD
-  Widget _tantangan() {
-=======
   Future<void> _toggleTantangan(bool sudahIkut) async {
     if (sudahIkut) {
       final keluar = await showDialog<bool>(
@@ -595,7 +529,6 @@ class _HomePageState extends State<HomePage> {
     final selesai = completedChallengeMonths.contains(key);
     final km = challengeKmFor(key);
 
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -677,23 +610,12 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-<<<<<<< HEAD
-=======
               if (ikut || selesai) _progresTantangan(km, selesai),
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 46,
                 child: ElevatedButton(
-<<<<<<< HEAD
-                  onPressed: () =>
-                      setState(() => _ikutTantangan = !_ikutTantangan),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _ikutTantangan
-                        ? Colors.grey.shade800
-                        : Colors.deepOrange,
-=======
                   onPressed: selesai ? null : () => _toggleTantangan(ikut),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ikut
@@ -701,22 +623,17 @@ class _HomePageState extends State<HomePage> {
                         : Colors.deepOrange,
                     disabledBackgroundColor: Colors.green.shade700,
                     disabledForegroundColor: Colors.white,
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),
                   child: Text(
-<<<<<<< HEAD
-                    _ikutTantangan ? 'Sudah Bergabung' : 'Ikuti Tantangan',
-=======
                     selesai
                         ? 'Selesai · Lencana Didapat'
                         : ikut
                             ? 'Sudah Bergabung'
                             : 'Ikuti Tantangan',
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

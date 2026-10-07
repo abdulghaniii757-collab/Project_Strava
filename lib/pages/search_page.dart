@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 
 final List<Map<String, String>> _dummyHasil = [
-<<<<<<< HEAD
-  {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Strava'},
-=======
   {'nama': 'Kirana Dewi', 'ket': 'Favorit pelari di Trekora'},
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
   {'nama': 'Yoga Pratama', 'ket': 'Teman dari temanmu'},
   {'nama': 'Rafi Ananda', 'ket': 'Sering lari pagi di sekitar kamu'},
   {'nama': 'Maya Salsabila', 'ket': 'Aktif minggu ini'},

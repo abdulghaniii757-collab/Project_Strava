@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/activity.dart';
 import '../services/local_storage.dart';
-<<<<<<< HEAD
-=======
 import '../widgets/activity_route_map.dart';
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 import 'add_activity_page.dart';
 
 class ActivityDetailPage extends StatefulWidget {

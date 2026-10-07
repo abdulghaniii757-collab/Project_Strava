@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/feed_post.dart';
+import '../models/post_comment.dart';
+import '../widgets/comment_sheet.dart';
+import '../widgets/share_sheet.dart';
+import '../widgets/activity_route_map.dart';
 import 'route_map.dart';
 
 class FeedCard extends StatefulWidget {
@@ -30,10 +34,9 @@ class _FeedCardState extends State<FeedCard> {
     });
   }
 
-  void _soon(String fitur) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$fitur belum tersedia')),
-    );
+  Future<void> _bukaKomentar() async {
+    await showCommentSheet(context, p);
+    if (mounted) setState(() {});
   }
 
   void _bukaMenu() {
@@ -82,7 +85,7 @@ class _FeedCardState extends State<FeedCard> {
                 title: const Text('Bagikan', style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _soon('Bagikan');
+                  showShareSheet(context, p);
                 },
               ),
             ],
@@ -134,6 +137,8 @@ class _FeedCardState extends State<FeedCard> {
                 const SizedBox(height: 14),
                 if (p.photoCount > 0)
                   _foto()
+                else if (p.source?.hasRoute ?? false)
+                  ActivityRouteMap(points: p.source!.routePoints)
                 else if (p.showMap)
                   RouteMap(seed: p.title.hashCode + p.userName.hashCode),
               ],
@@ -307,6 +312,7 @@ class _FeedCardState extends State<FeedCard> {
   }
 
   Widget _kudosRow() {
+    final jumlahKomentar = postComments[p.commentKey]?.length ?? 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Row(
@@ -334,11 +340,19 @@ class _FeedCardState extends State<FeedCard> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              p.kudos == 0 ? 'Jadi yang pertama memberi kudos' : '${p.kudos} memberikan kudos',
+              p.kudos == 0 ? 'Jadi yang pertama menyukai' : '${p.kudos} menyukai',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.grey.shade300, fontSize: 13.5),
             ),
           ),
+          if (jumlahKomentar > 0)
+            GestureDetector(
+              onTap: _bukaKomentar,
+              child: Text(
+                '$jumlahKomentar komentar',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 13.5),
+              ),
+            ),
         ],
       ),
     );
@@ -360,13 +374,13 @@ class _FeedCardState extends State<FeedCard> {
           ),
           Expanded(
             child: IconButton(
-              onPressed: () => _soon('Komentar'),
+              onPressed: _bukaKomentar,
               icon: Icon(Icons.chat_bubble_outline, color: Colors.grey.shade300),
             ),
           ),
           Expanded(
             child: IconButton(
-              onPressed: () => _soon('Bagikan'),
+              onPressed: () => showShareSheet(context, p),
               icon: Icon(Icons.share_outlined, color: Colors.grey.shade300),
             ),
           ),

@@ -17,7 +17,7 @@ class NotificationItem {
 final List<NotificationItem> _dummyNotifikasi = [
   NotificationItem(
     name: 'Kirana Dewi',
-    aksi: 'memberikan kudos pada aktivitas lari pagimu',
+    aksi: 'menyukai aktivitas lari pagimu',
     waktu: '2 jam lalu',
     icon: Icons.thumb_up,
   ),
@@ -44,7 +44,6 @@ final List<NotificationItem> _dummyNotifikasi = [
 void addNotification(NotificationItem item) => _dummyNotifikasi.insert(0, item);
 
 class NotificationsPage extends StatelessWidget {
-  // ... sisanya sama persis seperti punyamu, tidak perlu diubah
   const NotificationsPage({super.key});
 
   static const _bg = Color(0xFF121212);
