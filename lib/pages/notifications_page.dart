@@ -17,11 +17,7 @@ class NotificationItem {
 final List<NotificationItem> _dummyNotifikasi = [
   NotificationItem(
     name: 'Kirana Dewi',
-<<<<<<< HEAD
     aksi: 'memberikan kudos pada aktivitas lari pagimu',
-=======
-    aksi: 'menyukai aktivitas lari pagimu',
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
     waktu: '2 jam lalu',
     icon: Icons.thumb_up,
   ),
@@ -32,11 +28,7 @@ final List<NotificationItem> _dummyNotifikasi = [
     icon: Icons.chat_bubble,
   ),
   NotificationItem(
-<<<<<<< HEAD
-    name: 'Strava',
-=======
     name: 'Trekora',
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
     aksi: 'Tantangan 50 KM Bulan Ini akan berakhir 3 hari lagi',
     waktu: '1 hari lalu',
     icon: Icons.emoji_events,
@@ -49,12 +41,10 @@ final List<NotificationItem> _dummyNotifikasi = [
   ),
 ];
 
-<<<<<<< HEAD
-=======
 void addNotification(NotificationItem item) => _dummyNotifikasi.insert(0, item);
 
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 class NotificationsPage extends StatelessWidget {
+  // ... sisanya sama persis seperti punyamu, tidak perlu diubah
   const NotificationsPage({super.key});
 
   static const _bg = Color(0xFF121212);

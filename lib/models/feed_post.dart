@@ -37,8 +37,6 @@ class FeedPost {
   final int photoCount;
   final bool showMap;
 
-<<<<<<< HEAD
-=======
   /// Kunci unik postingan buat nyimpen komentarnya.
   String get commentKey => '$userName|${date.toIso8601String()}';
 
@@ -46,7 +44,6 @@ class FeedPost {
   String get shareLink =>
       'https://trekora.app/aktivitas/${date.millisecondsSinceEpoch.toRadixString(36)}';
 
->>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
   factory FeedPost.fromActivity(Activity activity) {
     final parts = activity.duration.split(':');
     final minutes = int.tryParse(parts[0]) ?? 0;
