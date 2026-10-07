@@ -242,46 +242,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
 
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Colors.grey.shade700)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'atau',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: Colors.grey.shade700)),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              _buildSocialButton(
-                icon: Icons.g_mobiledata,
-                label: 'Lanjutkan dengan Google',
-                onTap: () => _showMessage(
-                  'Masuk dengan Google belum tersedia. Silakan daftar dengan email.',
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildSocialButton(
-                icon: Icons.facebook,
-                label: 'Lanjutkan dengan Facebook',
-                onTap: () => _showMessage(
-                  'Masuk dengan Facebook belum tersedia. Silakan daftar dengan email.',
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildSocialButton(
-                icon: Icons.apple,
-                label: 'Lanjutkan dengan Apple',
-                onTap: () => _showMessage(
-                  'Masuk dengan Apple belum tersedia. Silakan daftar dengan email.',
-                ),
-              ),
-
               const SizedBox(height: 24),
               Center(
                 child: GestureDetector(
@@ -370,27 +330,6 @@ class _LoginPageState extends State<LoginPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey.shade700),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        onPressed: onTap,
       ),
     );
   }
