@@ -40,6 +40,10 @@ class FeedPost {
   /// Kunci unik postingan buat nyimpen komentarnya.
   String get commentKey => '$userName|${date.toIso8601String()}';
 
+  /// Link buat dibagikan; id-nya diambil dari waktu aktivitas biar tetap sama.
+  String get shareLink =>
+      'https://trekora.app/aktivitas/${date.millisecondsSinceEpoch.toRadixString(36)}';
+
   factory FeedPost.fromActivity(Activity activity) {
     final parts = activity.duration.split(':');
     final minutes = int.tryParse(parts[0]) ?? 0;

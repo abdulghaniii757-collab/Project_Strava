@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/feed_post.dart';
 import '../models/post_comment.dart';
 import '../widgets/comment_sheet.dart';
+import '../widgets/share_sheet.dart';
 import '../widgets/activity_route_map.dart';
 import 'route_map.dart';
 
@@ -36,12 +37,6 @@ class _FeedCardState extends State<FeedCard> {
   Future<void> _bukaKomentar() async {
     await showCommentSheet(context, p);
     if (mounted) setState(() {});
-  }
-
-  void _soon(String fitur) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$fitur belum tersedia')),
-    );
   }
 
   void _bukaMenu() {
@@ -90,7 +85,7 @@ class _FeedCardState extends State<FeedCard> {
                 title: const Text('Bagikan', style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _soon('Bagikan');
+                  showShareSheet(context, p);
                 },
               ),
             ],
@@ -345,7 +340,7 @@ class _FeedCardState extends State<FeedCard> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              p.kudos == 0 ? 'Jadi yang pertama memberi kudos' : '${p.kudos} memberikan kudos',
+              p.kudos == 0 ? 'Jadi yang pertama menyukai' : '${p.kudos} menyukai',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.grey.shade300, fontSize: 13.5),
             ),
@@ -385,7 +380,7 @@ class _FeedCardState extends State<FeedCard> {
           ),
           Expanded(
             child: IconButton(
-              onPressed: () => _soon('Bagikan'),
+              onPressed: () => showShareSheet(context, p),
               icon: Icon(Icons.share_outlined, color: Colors.grey.shade300),
             ),
           ),

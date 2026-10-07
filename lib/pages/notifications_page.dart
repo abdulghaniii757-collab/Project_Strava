@@ -17,7 +17,7 @@ class NotificationItem {
 final List<NotificationItem> _dummyNotifikasi = [
   NotificationItem(
     name: 'Kirana Dewi',
-    aksi: 'memberikan kudos pada aktivitas lari pagimu',
+    aksi: 'menyukai aktivitas lari pagimu',
     waktu: '2 jam lalu',
     icon: Icons.thumb_up,
   ),
