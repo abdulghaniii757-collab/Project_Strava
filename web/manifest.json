@@ -1,11 +1,11 @@
 {
-    "name": "project_strava",
-    "short_name": "project_strava",
+    "name": "Trekora",
+    "short_name": "Trekora",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#121212",
+    "theme_color": "#FB4D0B",
+    "description": "Trekora - catat aktivitas lari, sepeda, dan jalan kaki.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

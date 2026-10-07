@@ -94,6 +94,11 @@ class _AddActivityPageState extends State<AddActivityPage> {
       duration: duration,
       // Edit: tanggal aslinya dipertahankan. Baru: pakai waktu sekarang.
       date: widget.existing?.date ?? DateTime.now(),
+<<<<<<< HEAD
+=======
+      // Rute GPS hasil rekaman peta jangan sampai hilang waktu diedit.
+      routePoints: widget.existing?.routePoints ?? const [],
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
     );
 
     if (_isEditing) {

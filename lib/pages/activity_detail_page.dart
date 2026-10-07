@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/activity.dart';
 import '../services/local_storage.dart';
+<<<<<<< HEAD
+=======
+import '../widgets/activity_route_map.dart';
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 import 'add_activity_page.dart';
 
 class ActivityDetailPage extends StatefulWidget {
@@ -162,24 +166,34 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
               ],
             ),
             const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              height: 160,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+            if (activity.hasRoute)
+              ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.map_outlined, size: 40, color: Colors.grey.shade500),
-                    const SizedBox(height: 8),
-                    Text('Peta rute belum tersedia', style: TextStyle(color: Colors.grey.shade600)),
-                  ],
+                child: ActivityRouteMap(points: activity.routePoints, height: 260),
+              )
+            else
+              Container(
+                width: double.infinity,
+                height: 160,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.map_outlined, size: 40, color: Colors.grey.shade500),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Aktivitas ini nggak direkam lewat Peta, jadi belum ada rutenya',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

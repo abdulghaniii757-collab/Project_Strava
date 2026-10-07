@@ -4,15 +4,69 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/activity.dart';
 import '../models/gear.dart';
+<<<<<<< HEAD
 import '../models/user_profile.dart';
 
 /// Semua baca/tulis data permanen (shared_preferences) dikumpulin di sini,
 /// biar halaman lain tinggal panggil, ga perlu tau soal shared_preferences.
+=======
+import '../models/post_comment.dart';
+import '../models/saved_route.dart';
+import '../models/user_profile.dart';
+
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 class LocalStorage {
   static const _kActivities = 'activities';
   static const _kProfile = 'profile';
   static const _kGoal = 'weekly_goal_km';
   static const _kGear = 'gear_list';
+<<<<<<< HEAD
+=======
+  static const _kFollowing = 'followed_athletes';
+  static const _kRoutes = 'saved_routes';
+  static const _kChallengeJoined = 'challenge_joined_months';
+  static const _kChallengeDone = 'challenge_completed_months';
+  static const _kComments = 'post_comments';
+
+  static Future<void> saveComments(Map<String, List<PostComment>> comments) async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = comments.map(
+      (key, list) => MapEntry(key, list.map((c) => c.toJson()).toList()),
+    );
+    await prefs.setString(_kComments, jsonEncode(json));
+  }
+
+  static Future<Map<String, List<PostComment>>> loadComments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kComments);
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map(
+      (key, list) => MapEntry(
+        key,
+        (list as List)
+            .map((c) => PostComment.fromJson(c as Map<String, dynamic>))
+            .toList(),
+      ),
+    );
+  }
+
+  static Future<void> saveRoutes(List<SavedRoute> routes) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = routes.map((route) => route.toJson()).toList();
+    await prefs.setString(_kRoutes, jsonEncode(jsonList));
+  }
+
+  static Future<List<SavedRoute>> loadRoutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kRoutes);
+    if (raw == null) return [];
+    final decoded = jsonDecode(raw) as List;
+    return decoded
+        .map((route) => SavedRoute.fromJson(route as Map<String, dynamic>))
+        .toList();
+  }
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 
   static Future<void> saveActivities(List<Activity> activities) async {
     final prefs = await SharedPreferences.getInstance();
@@ -68,12 +122,51 @@ class LocalStorage {
         .toList();
   }
 
+<<<<<<< HEAD
   /// Hapus semua data yang kesimpen (aktivitas, profil, target, gear).
+=======
+  static Future<void> saveFollowing(Set<String> names) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kFollowing, names.toList());
+  }
+
+  static Future<Set<String>> loadFollowing() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_kFollowing) ?? []).toSet();
+  }
+
+  static Future<void> saveChallenges({
+    required Set<String> joined,
+    required Set<String> completed,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kChallengeJoined, joined.toList());
+    await prefs.setStringList(_kChallengeDone, completed.toList());
+  }
+
+  static Future<({Set<String> joined, Set<String> completed})>
+      loadChallenges() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      joined: (prefs.getStringList(_kChallengeJoined) ?? []).toSet(),
+      completed: (prefs.getStringList(_kChallengeDone) ?? []).toSet(),
+    );
+  }
+
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kActivities);
     await prefs.remove(_kProfile);
     await prefs.remove(_kGoal);
     await prefs.remove(_kGear);
+<<<<<<< HEAD
+=======
+    await prefs.remove(_kFollowing);
+    await prefs.remove(_kRoutes);
+    await prefs.remove(_kChallengeJoined);
+    await prefs.remove(_kChallengeDone);
+    await prefs.remove(_kComments);
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
   }
 }

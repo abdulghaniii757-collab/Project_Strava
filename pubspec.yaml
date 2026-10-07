@@ -1,5 +1,5 @@
 name: project_strava
-description: "A new Flutter project."
+description: "Trekora - aplikasi pencatat aktivitas lari, sepeda, dan jalan kaki."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -28,14 +28,27 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  google_maps_flutter: ^2.18.1  
-  geolocator: ^14.0.3          
+  flutter_map: ^6.1.0      # Peta gratis pengganti Google Maps
+  latlong2: ^0.9.0         # Untuk titik koordinat (Latitude/Longitude)
+  geolocator: ^14.0.3       
   flutter:
     sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+
+  # Simpan data permanen (aktivitas, profil, target, gear) di perangkat.
+  shared_preferences: ^2.3.2
+
+  # Milih foto dari galeri buat foto profil.
+  image_picker: ^1.1.2
+
+  # Milih foto profil langsung dari file explorer.
+  file_picker: ^13.1.0
+
+  # Hash kata sandi akun yang didaftarkan (SHA-256).
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +60,28 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  # Generate ikon aplikasi Trekora dari assets/icon (jalankan: dart run flutter_launcher_icons).
+  flutter_launcher_icons: ^0.14.4
+
+# Konfigurasi ikon aplikasi untuk semua platform.
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: "ic_launcher"
+  adaptive_icon_background: "#FB4D0B"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  adaptive_icon_foreground_inset: 0
+  min_sdk_android: 21
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    background_color: "#121212"
+    theme_color: "#FB4D0B"
+  windows:
+    generate: true
+    icon_size: 256
+  macos:
+    generate: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -59,10 +94,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  # Gambar yang dipakai di dalam aplikasi (logo, ilustrasi, dll).
+  # Cukup taruh file baru di folder ini, nggak perlu didaftarkan satu-satu.
+  assets:
+    - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

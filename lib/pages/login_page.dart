@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../models/user_profile.dart';
+import '../services/auth_service.dart';
+import '../services/local_storage.dart';
+import '../widgets/trekora_logo.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -9,6 +14,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _isLogin = true; // true = tampilan Login, false = tampilan Register
+  bool _ready = false; // true kalau status akun sudah selesai dicek
+  bool _busy = false; // true selama proses daftar/masuk berjalan
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -24,32 +31,108 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
-    // Kode sementara login dengan dummy email dan password
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialMode();
+  }
 
-    const tempEmail = 'admin@gmail.com';
-    const tempPassword = 'admin';
+  /// Kalau belum ada akun terdaftar di perangkat ini, langsung tampilkan tab
+  /// Daftar, karena pengguna wajib daftar dulu sebelum bisa masuk.
+  Future<void> _loadInitialMode() async {
+    final hasAccounts = await AuthService.hasAccounts();
+    if (!mounted) return;
+    setState(() {
+      _isLogin = hasAccounts;
+      _ready = true;
+    });
+  }
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mohon isi email dan kata sandi.')),
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      if (_isLogin) {
+        await _login();
+      } else {
+        await _register();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _login() async {
+    final email = _emailController.text;
+    final password = _passwordController.text;
+
+    if (email.trim().isEmpty || password.isEmpty) {
+      _showMessage('Mohon isi email dan kata sandi.');
+      return;
+    }
+
+    final account = await AuthService.login(email, password);
+    if (!mounted) return;
+
+    if (account == null) {
+      final hasAccounts = await AuthService.hasAccounts();
+      if (!mounted) return;
+      _showMessage(
+        hasAccounts
+            ? 'Email atau kata sandi salah.'
+            : 'Belum ada akun terdaftar. Silakan daftar dulu.',
       );
       return;
     }
 
-    if (email == tempEmail && password == tempPassword) {
-      Navigator.pushReplacementNamed(context, '/main');
+    Navigator.pushReplacementNamed(context, '/main');
+  }
+
+  Future<void> _register() async {
+    final name = _nameController.text.trim();
+
+    final error = await AuthService.register(
+      name: name,
+      email: _emailController.text,
+      password: _passwordController.text,
+      confirm: _confirmController.text,
+    );
+    if (!mounted) return;
+
+    if (error != null) {
+      _showMessage(error);
       return;
     }
 
+    // Nama saat daftar dipakai sebagai nama di halaman profil.
+    currentUser.name = name;
+    await LocalStorage.saveProfile(currentUser);
+    if (!mounted) return;
+
+    // Pindah ke tab Masuk, email dibiarkan terisi biar tinggal ketik sandi.
+    setState(() {
+      _isLogin = true;
+      _nameController.clear();
+      _passwordController.clear();
+      _confirmController.clear();
+    });
+    _showMessage('Akun berhasil dibuat. Silakan masuk.');
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return const Scaffold(backgroundColor: Color(0xFF161613));
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFF161613), // dark seperti tema Strava
+      backgroundColor: const Color(0xFF161613), // tema gelap
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -58,25 +141,12 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(height: 40),
               // Logo / Wordmark
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.directions_run,
-                    color: Colors.deepOrange.shade400,
-                    size: 36,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'strava',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+              const Center(
+                child: TrekoraWordmark(
+                  logoSize: 40,
+                  fontSize: 34,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -161,7 +231,7 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: _submit,
+                  onPressed: _busy ? null : _submit,
                   child: Text(
                     _isLogin ? 'MASUK' : 'DAFTAR',
                     style: const TextStyle(
@@ -170,40 +240,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Colors.grey.shade700)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'atau',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: Colors.grey.shade700)),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              _buildSocialButton(
-                icon: Icons.g_mobiledata,
-                label: 'Lanjutkan dengan Google',
-                onTap: _submit,
-              ),
-              const SizedBox(height: 12),
-              _buildSocialButton(
-                icon: Icons.facebook,
-                label: 'Lanjutkan dengan Facebook',
-                onTap: _submit,
-              ),
-              const SizedBox(height: 12),
-              _buildSocialButton(
-                icon: Icons.apple,
-                label: 'Lanjutkan dengan Apple',
-                onTap: _submit,
               ),
 
               const SizedBox(height: 24),
@@ -294,27 +330,6 @@ class _LoginPageState extends State<LoginPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey.shade700),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        onPressed: onTap,
       ),
     );
   }

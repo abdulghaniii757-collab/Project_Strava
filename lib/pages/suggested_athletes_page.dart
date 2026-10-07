@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+<<<<<<< HEAD
+=======
+import '../models/user_profile.dart';
+import '../services/local_storage.dart';
+
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 class SuggestedAthletesPage extends StatefulWidget {
   const SuggestedAthletesPage({super.key, required this.awal});
 
@@ -18,7 +24,10 @@ class _SuggestedAthletesPageState extends State<SuggestedAthletesPage> {
     {'nama': 'Bagas Wicaksono', 'ket': 'Jakarta Selatan'},
     {'nama': 'Sinta Maharani', 'ket': 'Yogyakarta'},
   ];
+<<<<<<< HEAD
   final Set<String> _diikuti = {};
+=======
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +46,11 @@ class _SuggestedAthletesPageState extends State<SuggestedAthletesPage> {
         itemBuilder: (context, i) {
           final u = _daftar[i];
           final nama = u['nama']!;
+<<<<<<< HEAD
           final sudah = _diikuti.contains(nama);
+=======
+          final sudah = followedAthletes.contains(nama);
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
 
           return Container(
             padding: const EdgeInsets.all(12),
@@ -69,11 +82,20 @@ class _SuggestedAthletesPageState extends State<SuggestedAthletesPage> {
                   onPressed: () {
                     setState(() {
                       if (sudah) {
+<<<<<<< HEAD
                         _diikuti.remove(nama);
                       } else {
                         _diikuti.add(nama);
                       }
                     });
+=======
+                        followedAthletes.remove(nama);
+                      } else {
+                        followedAthletes.add(nama);
+                      }
+                    });
+                    LocalStorage.saveFollowing(followedAthletes);
+>>>>>>> 55e8c4b70038aaa6754a400e0274880266a10e3c
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: sudah ? Colors.grey.shade800 : Colors.deepOrange,
